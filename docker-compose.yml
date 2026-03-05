@@ -1,0 +1,55 @@
+version: "3.8"
+
+services:
+  # MQTT Broker
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: provigil-mqtt
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./config/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+    restart: unless-stopped
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: provigil-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./model/exported:/app/model/exported
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=sqlite:///./data/provigil.db
+      - MQTT_BROKER_HOST=mosquitto
+      - MODEL_PATH=/app/model/exported/anomaly_model.pkl
+      - SCALER_PATH=/app/model/exported/scaler.pkl
+    depends_on:
+      - mosquitto
+    restart: unless-stopped
+
+  # React Dashboard (dev mode)
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    container_name: provigil-dashboard
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:8000/api
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  mosquitto_data:
+  mosquitto_log:
