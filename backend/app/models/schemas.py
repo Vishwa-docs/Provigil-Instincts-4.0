@@ -147,3 +147,22 @@ class WorkOrder(Base):
 
     # Relationships
     meter = relationship("Meter", back_populates="work_orders")
+
+
+# ── Network Node ──────────────────────────────────────────────────────────────
+
+
+class NetworkNode(Base):
+    __tablename__ = "network_nodes"
+
+    id = Column(String(64), primary_key=True, index=True)
+    node_type = Column(String(24), nullable=False)  # feeder / transformer / meter
+    name = Column(String(128), nullable=False)
+    parent_id = Column(String(64), ForeignKey("network_nodes.id"), nullable=True, index=True)
+    location_lat = Column(Float, nullable=True)
+    location_lng = Column(Float, nullable=True)
+    health_score = Column(Float, nullable=False, default=1.0)
+    status = Column(String(16), nullable=False, default="healthy")
+    created_at = Column(DateTime, nullable=False, default=_utcnow)
+
+    parent = relationship("NetworkNode", remote_side=[id], backref="children")

@@ -173,6 +173,35 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
+# ── Pro-Vigil: training pipeline & simulator (not for demo/production) ─────
+model/training/
+simulator/
+data/sample/
+*.pkl
+
+# ── Docs (internal planning, writeups) ────────────────────────────────────
+docs/*
+!docs/demo.md
+!docs/ppt.md
+!docs/architecture.md
+
+# ── Pro-Vigil: database & data ────────────────────────────────────────────
+data/provigil.db
+backend/data/
+
+# ── Pro-Vigil: mobile app build artifacts ──────────────────────────────────
+mobile/.expo/
+mobile/node_modules/
+mobile/dist/
+
+# ── Node ──────────────────────────────────────────────────────────────────
+node_modules/
+dashboard/node_modules/
+
+# ── IDE ───────────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+
 # Cursor  
 #  Cursor is an AI-powered code editor.`.cursorignore` specifies files/directories to 
 #  exclude from AI features like autocomplete and code analysis. Recommended for sensitive data

@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  ClipboardList, Plus, Filter, Clock, CheckCircle,
+  ClipboardList, Filter, Clock, CheckCircle,
   AlertTriangle, Wrench, Calendar, RefreshCw, ChevronDown,
+  Sparkles,
 } from 'lucide-react';
-import { PageHeader } from '../App';
-import { workOrdersAPI } from '../services/api';
+import PageHeader from '../components/PageHeader';
+import { workOrdersAPI, aiAPI } from '../services/api';
 import {
   formatDate, formatRelativeDate, getStatusBgColor,
 } from '../utils/helpers';

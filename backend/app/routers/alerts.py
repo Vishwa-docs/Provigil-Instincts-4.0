@@ -70,7 +70,7 @@ def list_alerts(
 @router.put("/{alert_id}/acknowledge", response_model=AlertResponse)
 def acknowledge_alert(
     alert_id: int,
-    body: AlertAcknowledge,
+    body: AlertAcknowledge | None = None,
     db: Session = Depends(get_db),
 ):
     """Acknowledge (or un-acknowledge) an alert."""
@@ -78,7 +78,7 @@ def acknowledge_alert(
     if not alert:
         raise HTTPException(status_code=404, detail="Alert not found")
 
-    alert.acknowledged = body.acknowledged
+    alert.acknowledged = body.acknowledged if body is not None else True
     db.commit()
     db.refresh(alert)
     return AlertResponse.model_validate(alert)

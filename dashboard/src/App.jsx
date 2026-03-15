@@ -10,19 +10,21 @@ import {
   ChevronLeft,
   ChevronRight,
   Activity,
+  Box,
 } from 'lucide-react';
-
 import Dashboard from './pages/Dashboard';
 import MeterFleet from './pages/MeterFleet';
 import MeterDetail from './pages/MeterDetail';
 import MapView from './pages/MapView';
 import Alerts from './pages/Alerts';
 import WorkOrders from './pages/WorkOrders';
+import DigitalTwin from './pages/DigitalTwin';
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/meters', label: 'Meter Fleet', icon: Gauge },
-  { path: '/map', label: 'Map View', icon: MapPin },
+  { path: '/map', label: 'Network Map', icon: MapPin },
+  { path: '/digital-twin', label: 'Digital Twin', icon: Box },
   { path: '/alerts', label: 'Alerts', icon: Bell },
   { path: '/workorders', label: 'Work Orders', icon: ClipboardList },
 ];
@@ -91,7 +93,7 @@ function Sidebar({ collapsed, setCollapsed }) {
               <Activity className="w-3.5 h-3.5 text-emerald-400" />
               <span className="text-xs font-medium text-emerald-400">System Online</span>
             </div>
-            <p className="text-[10px] text-gray-500">ML Pipeline Active</p>
+            <p className="text-[10px] text-gray-500">Fleet intelligence active</p>
           </div>
         </div>
       )}
@@ -111,20 +113,6 @@ function Sidebar({ collapsed, setCollapsed }) {
   );
 }
 
-function PageHeader({ title, subtitle, children }) {
-  return (
-    <div className="flex items-start justify-between mb-6">
-      <div>
-        <h1 className="text-2xl font-bold text-white">{title}</h1>
-        {subtitle && <p className="text-sm text-gray-400 mt-1">{subtitle}</p>}
-      </div>
-      {children && <div className="flex items-center gap-3">{children}</div>}
-    </div>
-  );
-}
-
-export { PageHeader };
-
 export default function App() {
   const [collapsed, setCollapsed] = useState(false);
 
@@ -143,6 +131,7 @@ export default function App() {
             <Route path="/meters" element={<MeterFleet />} />
             <Route path="/meters/:id" element={<MeterDetail />} />
             <Route path="/map" element={<MapView />} />
+            <Route path="/digital-twin" element={<DigitalTwin />} />
             <Route path="/alerts" element={<Alerts />} />
             <Route path="/workorders" element={<WorkOrders />} />
           </Routes>

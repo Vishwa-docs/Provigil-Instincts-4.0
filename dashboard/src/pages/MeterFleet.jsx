@@ -4,7 +4,7 @@ import {
   Search, Filter, Gauge, Activity, ArrowUpRight,
   AlertTriangle, Zap, ChevronRight,
 } from 'lucide-react';
-import { PageHeader } from '../App';
+import PageHeader from '../components/PageHeader';
 import { metersAPI } from '../services/api';
 import {
   formatDate, getStatusColor, getStatusBgColor,
@@ -17,6 +17,12 @@ const STATUS_FILTERS = [
   { value: 'warning', label: 'Warning' },
   { value: 'critical', label: 'Critical' },
 ];
+
+const STATUS_PRIORITY = {
+  critical: 0,
+  warning: 1,
+  healthy: 2,
+};
 
 function HealthBar({ score }) {
   const pct = Math.round(score * 100);
@@ -72,15 +78,21 @@ export default function MeterFleet() {
     load();
   }, [statusFilter]);
 
-  const filteredMeters = meters.filter((m) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      m.id.toLowerCase().includes(q) ||
-      m.name.toLowerCase().includes(q) ||
-      (m.suspected_issue && m.suspected_issue.toLowerCase().includes(q))
-    );
-  });
+  const filteredMeters = meters
+    .filter((m) => {
+      if (!search) return true;
+      const q = search.toLowerCase();
+      return (
+        m.id.toLowerCase().includes(q) ||
+        m.name.toLowerCase().includes(q) ||
+        (m.suspected_issue && m.suspected_issue.toLowerCase().includes(q))
+      );
+    })
+    .sort((left, right) => {
+      const statusDelta = (STATUS_PRIORITY[left.status] ?? 99) - (STATUS_PRIORITY[right.status] ?? 99);
+      if (statusDelta !== 0) return statusDelta;
+      return left.health_score - right.health_score;
+    });
 
   const handleFilterChange = (value) => {
     setStatusFilter(value);

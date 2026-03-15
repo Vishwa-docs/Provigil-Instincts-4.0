@@ -1,8 +1,8 @@
 """Application configuration loaded from environment variables / .env file."""
 
-import os
 from pathlib import Path
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Resolve .env at the project root (one level above backend/)
@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     # ── General ───────────────────────────────────────────────────────────
     APP_NAME: str = "Pro-Vigil"
     SECRET_KEY: str = "change-me-in-production"
+    LLM_PROVIDER: str = "azure"
 
     # ── Database ──────────────────────────────────────────────────────────
     DATABASE_URL: str = "sqlite:///./data/provigil.db"
@@ -36,16 +37,53 @@ class Settings(BaseSettings):
     MQTT_BROKER_PORT: int = 1883
     MQTT_TOPIC_PREFIX: str = "pro-vigil/meter"
 
-    # ── ML Model ──────────────────────────────────────────────────────────
-    MODEL_PATH: str = "../model/exported/anomaly_model.pkl"
-    SCALER_PATH: str = "../model/exported/scaler.pkl"
-
     # ── Scoring thresholds ────────────────────────────────────────────────
-    ANOMALY_THRESHOLD_WARNING: float = 0.6
-    ANOMALY_THRESHOLD_CRITICAL: float = 0.85
+    ANOMALY_THRESHOLD_WARNING: float = 0.15
+    ANOMALY_THRESHOLD_CRITICAL: float = 0.35
 
     # ── Scheduler ─────────────────────────────────────────────────────────
     SCORING_INTERVAL_SECONDS: int = 30
+
+    # ── Azure OpenAI ──────────────────────────────────────────────────────
+    AZURE_OPENAI_ENDPOINT: str = ""
+    AZURE_OPENAI_API_KEY: str = ""
+    AZURE_OPENAI_DEPLOYMENT: str = Field(
+        default="gpt-4o",
+        validation_alias=AliasChoices(
+            "AZURE_OPENAI_DEPLOYMENT",
+            "AZURE_OPENAI_DEPLOYMENT_NAME",
+        ),
+    )
+    AZURE_OPENAI_API_VERSION: str = "2024-12-01-preview"
+
+    # ── Email (Gmail SMTP) ────────────────────────────────────────────────
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USE_TLS: bool = True
+    SMTP_USER: str = Field(
+        default="",
+        validation_alias=AliasChoices("SMTP_USER", "SMTP_EMAIL"),
+    )
+    SMTP_PASSWORD: str = Field(
+        default="",
+        validation_alias=AliasChoices("SMTP_PASSWORD", "SMTP_APP_PASSWORD"),
+    )
+    SMTP_FROM: str = Field(
+        default="",
+        validation_alias=AliasChoices("SMTP_FROM", "SMTP_USER", "SMTP_EMAIL"),
+    )
+    ALERT_RECIPIENTS: str = Field(
+        default="",
+        validation_alias=AliasChoices("ALERT_RECIPIENTS", "SMTP_TO"),
+    )
+
+    @property
+    def SMTP_EMAIL(self) -> str:
+        return self.SMTP_USER
+
+    @property
+    def SMTP_APP_PASSWORD(self) -> str:
+        return self.SMTP_PASSWORD
 
 
 settings = Settings()

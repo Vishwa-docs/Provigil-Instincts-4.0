@@ -29,6 +29,13 @@ async def lifespan(app: FastAPI):
     logger.info("Initialising database …")
     init_db()
 
+    # Seed demo data
+    try:
+        from app.seed_demo import seed_demo_data
+        seed_demo_data()
+    except Exception:
+        logger.exception("Demo seeder failed – continuing.")
+
     # MQTT service
     try:
         from app.services.mqtt_service import start_mqtt
@@ -80,12 +87,18 @@ app.add_middleware(
 # ── Register routers ─────────────────────────────────────────────────────────
 
 from app.routers import alerts, dashboard, ingest, meters, workorders  # noqa: E402
+from app.routers import network, digital_twin, vision, retraining, ai  # noqa: E402
 
 app.include_router(meters.router)
 app.include_router(alerts.router)
 app.include_router(workorders.router)
 app.include_router(dashboard.router)
 app.include_router(ingest.router)
+app.include_router(network.router)
+app.include_router(digital_twin.router)
+app.include_router(vision.router)
+app.include_router(retraining.router)
+app.include_router(ai.router)
 
 # ── Serve front-end build (production) ────────────────────────────────────────
 
