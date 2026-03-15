@@ -193,6 +193,7 @@ backend/data/
 mobile/.expo/
 mobile/node_modules/
 mobile/dist/
+mobile/android/
 
 # ── Node ──────────────────────────────────────────────────────────────────
 node_modules/
@@ -224,3 +225,4 @@ build/
 *.p12
 
 Planning/
+mobile/android/
