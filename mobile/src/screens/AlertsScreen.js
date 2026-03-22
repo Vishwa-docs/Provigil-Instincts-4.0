@@ -11,16 +11,16 @@ import { useFocusEffect } from '@react-navigation/native';
 import { api } from '../api';
 
 const C = {
-  bg: '#0a0f1e',
-  card: '#131b3a',
-  border: '#1e2a4a',
-  accent: '#3b82f6',
-  cyan: '#06b6d4',
-  red: '#ef4444',
-  amber: '#f59e0b',
-  green: '#10b981',
-  text: '#e2e8f0',
-  muted: '#64748b',
+  bg: '#F5F5F7',
+  card: '#FFFFFF',
+  border: '#E5E5EA',
+  accent: '#0071E3',
+  cyan: '#5AC8FA',
+  red: '#FF3B30',
+  amber: '#FF9500',
+  green: '#34C759',
+  text: '#1D1D1F',
+  muted: '#AEAEB2',
 };
 
 const SEV_COLORS = { critical: C.red, warning: C.amber, info: C.accent };

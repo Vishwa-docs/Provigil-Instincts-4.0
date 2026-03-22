@@ -18,6 +18,12 @@ export const dashboardAPI = {
   getHealthDistribution: () => api.get('/dashboard/health-distribution'),
   getAnomalyTrend: () => api.get('/dashboard/anomaly-trend'),
   getRecentAlerts: () => api.get('/dashboard/recent-alerts'),
+  triggerScenario: () => api.post('/dashboard/trigger-scenario'),
+  subscribe: (email) => api.post('/dashboard/subscribe', { email }),
+  unsubscribe: (email) => api.post('/dashboard/unsubscribe', { email }),
+  getSubscribers: () => api.get('/dashboard/subscribers'),
+  getEmailStatus: () => api.get('/dashboard/email-status'),
+  setEmailEnabled: (enabled) => api.post('/dashboard/email-toggle', { enabled }),
 };
 
 export const metersAPI = {

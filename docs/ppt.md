@@ -1,24 +1,25 @@
-# Pro-Vigil PPT Structure
+# ProVigil PPT Structure
 
 ## Goal
 
-Use a short 6-7 slide deck that matches the 3-4 minute demo and keeps the story simple: problem, solution, proof, and impact.
+Use a short 6-7 slide deck that matches the 3–4 minute presentation and keeps the story simple: problem, solution, proof, and impact.
 
 ## Slide 1: Title
 
 Title:
 
-`Pro-Vigil: Predictive Maintenance for Smart Meter Fleets`
+`ProVigil Instincts 4.0: Predictive Maintenance for Smart Meter Fleets`
 
 Show:
 
 - Team name
 - One-line tagline: `Localized intelligence for smart meter health, diagnostics, and maintenance action`
-- Optional hero screenshot of the dashboard
+- Hero screenshot of the dashboard
+- Live URL: https://provigilinstincts.click
 
 What to say:
 
-"We built Pro-Vigil to help utilities detect meter failures earlier and act before they become outages, safety risks, or revenue loss."
+"We built ProVigil Instincts 4.0 to help utilities detect meter failures earlier and act before they become outages, safety risks, or revenue loss."
 
 ## Slide 2: Problem Statement
 
@@ -42,22 +43,25 @@ What to say:
 
 Title:
 
-`What Pro-Vigil Does`
+`What ProVigil Does`
 
 Show:
 
 - Simple flow diagram:
   `Meter telemetry -> Localized scoring -> Network intelligence -> Digital twin diagnosis -> Alerts -> Work orders -> Field app`
-- 5 innovation tags:
+- 8 innovation tags:
   `Localized model`
   `Network intelligence`
   `Digital twin`
   `VLM field validation`
   `AI work orders`
+  `VOC gas sensing`
+  `Edge ML`
+  `GIS clustering`
 
 What to say:
 
-"We turn raw smart-meter telemetry into a full maintenance workflow, from anomaly detection to actionable field response."
+"We turn raw smart-meter telemetry into a full maintenance workflow, from anomaly detection to actionable field response. Our platform includes 17 detection rules calibrated to Indian CEA/IEC standards, including a VOC gas sensor for arcing detection."
 
 ## Slide 4: Dashboard and Fleet Visibility
 
@@ -67,17 +71,19 @@ Title:
 
 Show:
 
-- Screenshot of dashboard
+- Screenshot of **HowItWorks landing page** (`/`) — 8 innovation cards, detection methods table, problem-solution mapping
+- Screenshot of **Dashboard** (`/dashboard`) — fleet health cards, anomaly trend, fault scenario trigger
 - Screenshot of meter fleet
 - Small callouts for:
   `Fleet health`
   `Risk ranking`
   `Anomaly trend`
   `Recent alerts`
+  `VOC gas sensing`
 
 What to say:
 
-"The operator starts with fleet-level visibility and immediately sees which meters need attention first."
+"Visitors land on our How It Works page, which showcases all 8 innovations including VOC gas sensing hardware. The operator dashboard gives fleet-level visibility — which meters need attention first. The fault scenario trigger lets judges see the detection pipeline in action with one click."
 
 ## Slide 5: Network Intelligence and Digital Twin
 
@@ -109,13 +115,16 @@ Show:
 - Screenshot of alerts page
 - Screenshot of work orders page
 - Small mobile app note:
-  `Demo APK available`
+  `Android APK available for field use`
   `Field video inspection with Cosmos Reason 2`
   `Loose connection detection flow`
+- Hardware innovation:
+  `VOC gas sensor (SGP40/BME680) — $1 MOX sensor for off-gas/arcing detection`
+  `ESP32 edge firmware — on-device anomaly scoring`
 
 What to say:
 
-"The system closes the loop by generating actionable alerts and maintenance work orders. We also built a mobile demo APK where a field engineer records a short inspection video and the app flags a loose connection using a simulated VLM workflow."
+"The system closes the loop by generating actionable alerts and maintenance work orders. We also built a mobile app where a field engineer captures a meter image and the VLM pipeline flags physical defects like loose connections."
 
 Note:
 
@@ -126,7 +135,7 @@ Note:
 
 Title:
 
-`Why Pro-Vigil Matters`
+`Why ProVigil Matters`
 
 Show:
 
@@ -138,7 +147,7 @@ Show:
 
 What to say:
 
-"Pro-Vigil helps utilities shift from reactive replacement to predictive, localized, explainable maintenance. That is the value of the platform."
+"ProVigil helps utilities shift from reactive replacement to predictive, localized, explainable maintenance. That is the value of the platform."
 
 ## PPT design tips
 

@@ -5,10 +5,10 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash.png",
-      "backgroundColor": "#0a0f1e",
+      "backgroundColor": "#F5F5F7",
       "resizeMode": "contain"
     },
     "ios": {
@@ -21,7 +21,7 @@
       "package": "com.provigil.fieldinspector",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0a0f1e"
+        "backgroundColor": "#F5F5F7"
       },
       "permissions": ["CAMERA"],
       "versionCode": 1

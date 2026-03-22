@@ -48,7 +48,7 @@ FAILURE_SCENARIOS = [
 ]
 
 
-# ── Daily load-curve helpers (mirrored from simulator) ────────────────────────
+# ── Daily load-curve helpers ──────────────────────────────────────────────────
 
 def _residential_curve(hour: float) -> float:
     if hour < 5:

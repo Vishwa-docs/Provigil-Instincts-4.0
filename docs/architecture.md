@@ -1,4 +1,6 @@
-# Pro-Vigil Architecture Diagram
+# ProVigil Architecture Diagram
+
+> **Live deployment**: https://provigilinstincts.click (HTTPS, Let's Encrypt SSL)
 
 Use this single Mermaid block directly in Markdown, Mermaid Live, GitHub, or any Mermaid.js renderer.
 
@@ -14,12 +16,11 @@ flowchart TB
 
     subgraph SOURCES["Field Layer"]
         METERS["Smart Meters and Edge Firmware<br/>DLMS telemetry, events, power quality signals"]:::source
-        SIM["Simulator<br/>Synthetic meter readings and anomalies"]:::source
-        MOBILE["Mobile App / APK<br/>Field inspection and VLM demo"]:::client
+        MOBILE["Mobile App / APK<br/>Field inspection and VLM analysis"]:::client
     end
 
     subgraph EXPERIENCE["Operator Experience"]
-        DASH["Web Dashboard<br/>Fleet, alerts, network map, digital twin"]:::client
+        DASH["Web Dashboard<br/>HowItWorks landing, fleet, alerts, network map, digital twin"]:::client
     end
 
     subgraph PLATFORM["Pro-Vigil Platform"]
@@ -30,14 +31,16 @@ flowchart TB
         end
 
         subgraph SERVICES["Core Intelligence and Automation"]
-            SCORE["Scoring Engine<br/>Anomaly and health scoring"]:::service
+            SCORE["Scoring Engine<br/>17-rule anomaly and health scoring"]:::service
             NET["Network Intelligence<br/>Transformer / feeder context"]:::intelligence
-            TWIN["Digital Twin Engine<br/>Component health breakdown"]:::intelligence
+            TWIN["Digital Twin Engine<br/>6-component health breakdown"]:::intelligence
             LLM["LLM Work Order Assistant<br/>Azure OpenAI summaries"]:::intelligence
-            VLM["Simulated Vision Reasoning<br/>Loose connection detection"]:::intelligence
+            VLM["Vision Reasoning Engine<br/>Loose connection detection"]:::intelligence
             ALERT["Alerting and Workflow Engine"]:::service
             EMAIL["Email Notification Service"]:::service
-            SCHED["Scheduler and Demo Seeder"]:::service
+            SCHED["Scheduler and Fleet Seeder"]:::service
+            SUB["Subscriber Service<br/>Email collection, notifications, and unsubscribe"]:::service
+            SCENARIO["Fault Scenario Pipeline<br/>One-click fault injection"]:::service
         end
     end
 
@@ -50,10 +53,10 @@ flowchart TB
         MQTT["MQTT Broker"]:::external
         AZURE["Azure OpenAI"]:::external
         SMTP["Gmail SMTP"]:::external
+        NGINX["Nginx + Let's Encrypt SSL<br/>HTTPS termination, HTTP redirect"]:::external
     end
 
     METERS -->|Live telemetry| MQTT
-    SIM -->|Demo telemetry| MQTT
     MQTT --> INGEST
     INGEST --> SCORE
 
@@ -71,10 +74,17 @@ flowchart TB
     SCHED --> SCORE
     SCHED --> DB
 
+    SCENARIO --> SCORE
+    SCENARIO --> ALERT
+    SUB --> EMAIL
+
     DASH --> COREAPI
     DASH --> AIAPI
     MOBILE --> AIAPI
     MOBILE --> COREAPI
+
+    NGINX --> DASH
+    NGINX --> COREAPI
 
     COREAPI --> DB
     COREAPI --> NET

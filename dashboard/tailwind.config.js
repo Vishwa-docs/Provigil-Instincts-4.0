@@ -7,26 +7,20 @@ export default {
   theme: {
     extend: {
       colors: {
-        navy: {
-          50: '#e7e9ef',
-          100: '#c3c8d4',
-          200: '#9ba3b8',
-          300: '#737e9b',
-          400: '#556285',
-          500: '#374670',
-          600: '#313f68',
-          700: '#28355d',
-          800: '#202b51',
-          900: '#131b3a',
-          950: '#0b1022',
+        apple: {
+          bg: '#F5F5F7',
+          card: '#FFFFFF',
+          sidebar: '#FBFBFD',
+          text: '#1D1D1F',
+          secondary: '#86868B',
+          border: '#E5E5EA',
+          blue: '#0071E3',
+          green: '#34C759',
+          orange: '#FF9500',
+          red: '#FF3B30',
+          cyan: '#5AC8FA',
+          purple: '#AF52DE',
         },
-        accent: {
-          blue: '#3b82f6',
-          green: '#10b981',
-          amber: '#f59e0b',
-          red: '#ef4444',
-          cyan: '#06b6d4',
-        }
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],

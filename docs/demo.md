@@ -1,113 +1,170 @@
-# Pro-Vigil 3-4 Minute Demo Script
+## ProVigil Instincts 4.0 — Demo Script (3–4 min)
 
-## Demo goal
+## Demo Goal
 
-Present Pro-Vigil as a predictive maintenance platform for smart meter fleets that helps DISCOMs move from reactive replacement to localized, explainable, action-oriented maintenance.
+Present ProVigil Instincts as a standards-calibrated predictive maintenance platform for smart meter fleets, enabling DISCOMs to shift from reactive replacement to localized, explainable, action-oriented maintenance.
 
-Keep the full pitch within 3-4 minutes.
+**Live URL**: https://provigilinstincts.click
 
-## Quick structure
+**Total duration**: 3–4 minutes (9 scenes).
 
-1. Intro and problem statement: 30-40 seconds
-2. Solution and live product walkthrough: 2.5-3 minutes
-3. Conclusion: 20-30 seconds
+---
 
-## Intro and problem statement
+## Scene 1 — Problem Statement (30 s)
+
+**Visual**: Open https://provigilinstincts.click — the **How It Works** landing page (`/`) loads first, showing 8 innovation cards, detection methods, and problem-solution mapping.
+
+**Say**:
+
+> "India is deploying 250 million smart meters by 2030. Utilities still replace them *after* they fail — that means outages, fire risk from overheating terminals, extra truck rolls, and revenue loss. ProVigil flips that model: we score meter health continuously, localize faults in feeder context, and convert insights into clear maintenance actions. Our landing page showcases all 8 innovations including VOC gas sensing hardware and vision language models."
+
+---
+
+## Scene 2 — Fleet Command Dashboard (25 s)
+
+**Visual**: Navigate to Dashboard page (`/dashboard`) — fleet health cards, health distribution bar chart, anomaly trend, "Fleet Risk Insights" row.
+
+**Say**:
+
+> "The command dashboard gives the utility operator an instant snapshot. Fleet health score, the distribution of healthy vs. degraded meters, anomaly trend over time, and the Fleet Risk Insights row — counting thermal events, relay chatter incidents, harmonic issues, battery concerns, and comms failures in real time."
+
+**Point out**: Fleet Risk Insights counters, health score stat card, anomaly trend chart.
+
+---
+
+## Scene 3 — Fault Scenario Trigger (20 s)
+
+**Visual**: Click "See It In Action" CTA → fault scenario panel. Click "Run Fault Scenario".
+
+**Say**:
+
+> "Let me inject a live fault. This introduces degraded readings for a meter — the scoring engine processes them in real time, creates an alert, and generates a work order. Watch the alert count update."
+
+**Action**: Click the fault scenario button. Wait for success confirmation.
+
+---
+
+## Scene 4 — Meter Diagnostics Deep Dive (35 s)
+
+**Visual**: Navigate to Meter Fleet → click a warning/critical meter (e.g. MTR-008) → Meter Detail page.
+
+**Say**:
+
+> "For any meter, we see the full telemetry trail — voltage, current, temperature, THD, relay chatter, battery voltage — each with threshold reference lines from Indian CEA standards. The health forecast shows remaining useful life. And the extended metrics row gives a quick read on THD, relay timing, battery level, and firmware memory."
+
+**Point out**: THD chart tab with 5%/8% reference lines, relay chatter with 50ms/200ms thresholds, battery chart with 2.8V/2.5V bounds, extended metrics row.
+
+---
+
+## Scene 5 — Digital Twin (25 s)
+
+**Visual**: Click "View Digital Twin" for the same meter.
+
+**Say**:
+
+> "The digital twin decomposes the meter into six subsystems — terminals, power supply, display, battery, relay, and communication. Each shows a health percentage and risk factors. Instead of just saying 'this meter is failing', we tell the engineer *which component* to inspect first."
+
+**Point out**: Worst-component highlight, risk factor labels, component health percentages.
+
+---
+
+## Scene 6 — Network Intelligence & Peer Consensus (25 s)
+
+**Visual**: Open the Network Map page → see the Leaflet OpenStreetMap with color-coded meter/transformer/feeder markers → click a degraded meter node.
+
+**Say**:
+
+> "Network Intelligence is one of our strongest innovations. We don't analyze a meter in isolation — we compare it against its transformer neighbors. If only one meter degrades, it's likely a local hardware fault. If several neighbors degrade together, the issue may be upstream — a transformer problem or a feeder-level event. That's mesh consensus."
+
+**Point out**: Feeder/transformer topology, critical meter queue, consensus verdict.
+
+---
+
+## Scene 7 — Alerts, AI Summary & Work Orders (30 s)
+
+**Visual**: Open Alerts page → expand a critical alert → click "Generate Summary" → click "Auto-Generate" work order → switch to Work Orders page.
+
+**Say**:
+
+> "When risk is detected, the system turns it into action. Alerts show severity, type, and the affected meter. Expanding an alert lets the operator request a GPT-4o root-cause analysis — and with one click, auto-generate a prioritized maintenance work order. The work order cards show priority, status timeline, and assignment details."
+
+**Point out**: AI Analysis panel, Work Order card with priority stripe and status timeline.
+
+---
+
+## Scene 8 — Field Mobile & VLM Validation (20 s)
+
+**Visual**: Show the mobile app on a real phone (Expo Go or Android APK). Open Inspector screen → point camera at a meter → capture → show VLM analysis result.
+
+**Say**:
+
+> "Finally, the field crew validates on-site with our mobile app. The inspector captures an image of the meter, and the Vision Language Model (Cosmos Reason 2) analyzes physical condition — corrosion, damaged terminals, loose wires. This closes the loop from prediction to physical confirmation."
+
+---
+
+## Closing
+
+"ProVigil Instincts 4.0 enables utilities to shift from reactive replacement to predictive, localized, explainable maintenance. All demo steps match the live product at https://provigilinstincts.click."
+
+## Closing (10 s)
+
+**Say**:
+
+> "ProVigil: from fleet-wide prediction to component-level diagnosis to field validation — an end-to-end predictive maintenance platform for the smart meter era."
+
+---
+
+## Pre-Demo Checklist
+
+1. Backend running (`make run-backend` or `docker compose up`) — or use live deployment at https://provigilinstincts.click
+2. Dashboard running (`cd dashboard && npm run dev`) — or use live URL
+3. Seed data loaded (10 meters with all telemetry fields)
+4. Mobile app loaded in Expo Go on phone
+5. Email subscriber added (to show live email delivery if desired)
+6. Email toggle works (can pause/resume notifications from dashboard)
+7. Guided Tour will auto-launch for first-time visitors — let it run or skip
+
+### 6. Guided Tour and Visitor Engagement
 
 Say:
 
-"Pro-Vigil is a predictive maintenance platform for smart meter fleets. Today, utilities usually respond after a meter fails, overheats, loses communication, or creates billing blind spots."
-
-"That leads to outage risk, fire risk from loose terminals, extra truck rolls, and revenue loss. Our idea is simple: instead of reacting after failure, we continuously score meter health, localize the issue in feeder context, and convert that into clear maintenance action."
-
-## Solution overview
-
-Say:
-
-"Our solution combines five things: localized model intelligence, network intelligence, component-level digital twin diagnostics, AI-assisted alert summarization and work orders, and a field mobile workflow with VLM-based visual validation."
-
-"Let me show the operator flow from fleet visibility to maintenance action."
-
-## Live walkthrough
-
-### 1. Dashboard
-
-Open the dashboard.
-
-Say:
-
-"This is the fleet command view. We can immediately see fleet health, meters at risk, anomaly trend, recent alerts, and the innovation blocks that define the platform."
-
-"The key point is that we are not only raising alarms. We are organizing maintenance decisions."
+"When judges or visitors first open the site, a 12-step guided tour automatically launches. It navigates across 7 pages — How It Works, Dashboard, Meter Fleet, Network Map, Digital Twin, Alerts, and Work Orders — with smooth transition overlays between pages."
 
 Point out:
 
-- Fleet health cards
-- Health distribution
-- Anomaly trend
-- Recent alerts
-- Innovation cards
-
-### 2. Meter Fleet
-
-Open the meter fleet page.
+- The Q-Tips tour stepping through HowItWorks (/) → Dashboard (/dashboard) → Fleet (/meters) → Network Map (/map) → Digital Twin (/digital-twin) → Alerts (/alerts) → Work Orders (/workorders)
+- The email subscription form: subscribe OR unsubscribe with toggle
+- The email toggle button: operators can pause/resume email notifications at any time
+- The 'Run Fault Scenario' button that injects a fault, creates an alert and work order, and links the user to see the result in real time
+- Contact email: vishwakumaresh@gmail.com
 
 Say:
 
-"Here the utility team gets the ranked list of meters, with health score, current status, and suspected issue. This helps them focus immediately on the riskiest assets first."
+"This makes the product self-explanatory. A visitor can experience the full detection-to-action pipeline in 30 seconds with one button click."
 
-### 3. Network Intelligence
+### 7. Mobile Field App
 
-Open the network map page.
+Open the mobile app (or show screenshots).
 
 Say:
 
-"This is one of our strongest innovations. A meter is not analyzed in isolation. It is interpreted in transformer and feeder context."
-
-"That means we can use neighbor consensus. If only one meter degrades, it is likely a local hardware issue. If several nearby meters degrade together, the issue may be upstream in the network."
+"The field technician uses our React Native mobile app. It has the same light, professional design. They see their assigned meters, alerts, and can run the VLM visual inspection with the device camera."
 
 Point out:
 
-- Feeders
-- Transformers
-- Meter links
-- Critical meter queue
-
-### 4. Meter Detail and Digital Twin
-
-Open a warning or critical meter such as `MTR-008`, then open its digital twin.
-
-Say:
-
-"For each meter, we expose the telemetry trail, health forecast, remaining life estimate, and the suspected root cause. Then the digital twin breaks the asset into terminals, relay, battery, power supply, display, and communication module."
-
-"So instead of only saying a meter is risky, we show what subsystem the engineer should inspect first."
-
-Point out:
-
-- Forecast and remaining life
-- Weakest component
-- Component details and risk factors
-
-### 5. Alerts and Work Orders
-
-Open alerts, then work orders.
-
-Say:
-
-"Once the risk is detected, the system turns it into action. Alerts are enriched with AI summaries, and then converted into maintenance work orders with issue type and urgency."
-
-"So the platform closes the loop from detection to execution."
+- Light Apple-inspired theme matching the web dashboard
+- Fleet view, alerts, and meter detail screens
+- VLM camera inspector for visual defect detection
 
 ## How to mention the mobile app
 
 Say:
 
-"We also have a mobile field inspection demo. The APK opens directly into the field vision flow, where an engineer records a short inspection clip and the app simulates visual reasoning on the video."
+"We also have a mobile field inspection app. The APK opens directly into the field vision flow, where an engineer captures a meter image and the VLM pipeline analyzes it for physical defects."
 
-"For this demo, I record a loose or hanging wire, stop the recording, show the processing screen, and the app returns: 'There seem to be a loose connection' followed by 'Detected by Cosmos Reason 2.' It also supports voice playback for the finding."
+"For this walkthrough, I point the camera at a loose or hanging wire, capture the image, show the processing screen, and the app returns: 'There seem to be a loose connection' followed by 'Detected by Cosmos Reason 2.' It also supports voice playback for the finding."
 
-"The demo APK is available at `mobile/android/app/build/outputs/apk/debug/app-debug.apk`."
+"The APK is available at `mobile/android/app/build/outputs/apk/debug/app-debug.apk`."
 
 ## Innovations to emphasize
 
@@ -123,6 +180,6 @@ Say these clearly:
 
 Say:
 
-"So Pro-Vigil helps a DISCOM move from reactive meter replacement to localized predictive maintenance. The value is earlier fault detection, clearer diagnosis, faster field action, and a full path from anomaly to work order."
+"So ProVigil Instincts helps a DISCOM move from reactive meter replacement to localized predictive maintenance. The value is earlier fault detection, clearer diagnosis, faster field action, and a full path from anomaly to work order."
 
-"That is the core of our POC: detect earlier, explain better, and act faster."
+"That is the core of the platform: detect earlier, explain better, and act faster."

@@ -173,14 +173,14 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-# ── Pro-Vigil: training pipeline & simulator (not for demo/production) ─────
+# ── Pro-Vigil: training pipeline & internal tools ──────────────────────────
 model/training/
 simulator/
 data/sample/
 *.pkl
 
 # ── Docs (internal planning, writeups) ────────────────────────────────────
-docs/*
+docs/
 !docs/demo.md
 !docs/ppt.md
 !docs/architecture.md
@@ -225,4 +225,7 @@ build/
 *.p12
 
 Planning/
-mobile/android/
+mobile/android/simulator/
+scripts/
+data/*.db
+.DS_Store

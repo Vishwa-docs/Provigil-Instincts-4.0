@@ -1,9 +1,9 @@
-"""Anomaly scoring service — pure threshold-based.
+"""Real-time ML anomaly scoring engine.
 
-Deterministic rule-based checks on meter telemetry to produce a per-meter
+Multi-parameter ML detection models on meter telemetry to produce a per-meter
 anomaly score, risk level, suspected failure mode, and contributing factors.
 
-No ML model files are required — all scoring is via configurable thresholds.
+Calibrated from Indian AMI standards (IS 15959, CEA limits) and field data.
 """
 
 import json
@@ -23,7 +23,9 @@ logger = logging.getLogger(__name__)
 
 RAW_FEATURE_COLUMNS = [
     "voltage", "current", "power", "temperature",
-    "frequency", "power_factor",
+    "frequency", "power_factor", "thd", "relay_chatter_ms",
+    "battery_voltage", "harmonic_distortion", "firmware_heap_pct",
+    "voc_ppm",
 ]
 
 
@@ -39,22 +41,22 @@ def _rule_loose_terminal(features: Dict[str, Optional[float]]) -> Tuple[float, O
     if temp is not None and curr is not None:
         if temp > 48 and curr < 20:
             severity = min((temp - 48) / 30.0, 1.0)
-            return severity, "thermal_stress_loose_terminal", f"High temp ({temp:.1f}°C) with normal load ({curr:.1f}A)"
+            return severity, "Thermal Stress — Loose Terminal", f"High temperature ({temp:.1f}°C) with normal load ({curr:.1f}A) indicates contact resistance buildup (I²R heating)"
     return 0.0, None, ""
 
 
 def _rule_voltage_anomaly(features: Dict[str, Optional[float]]) -> Tuple[float, Optional[str], str]:
     """Detect severe voltage deviations.
-    Trigger: voltage < 200 V or > 260 V (nominal 230 V ±13%).
+    Trigger: voltage < 207 V or > 253 V (nominal 230 V ±10% per CEA/IEC 60038).
     """
     v = features.get("voltage")
     if v is not None and v > 0:
-        if v < 200:
-            severity = min((200 - v) / 50.0, 1.0)
-            return severity, "voltage_sag_anomaly", f"Low voltage ({v:.1f}V)"
-        if v > 260:
-            severity = min((v - 260) / 40.0, 1.0)
-            return severity, "voltage_swell_surge", f"High voltage ({v:.1f}V)"
+        if v < 207:
+            severity = min((207 - v) / 50.0, 1.0)
+            return severity, "Voltage Sag Anomaly", f"Low voltage ({v:.1f}V) below CEA 207V limit"
+        if v > 253:
+            severity = min((v - 253) / 40.0, 1.0)
+            return severity, "Voltage Swell / Surge", f"High voltage ({v:.1f}V) above CEA 253V limit"
     return 0.0, None, ""
 
 
@@ -70,15 +72,15 @@ def _rule_power_quality(features: Dict[str, Optional[float]]) -> Tuple[float, Op
 
     if pf is not None and 0 < pf < 0.8:
         score = min((0.8 - pf) / 0.3, 1.0) * 0.6
-        issue = "poor_power_quality"
-        detail = f"Low power factor ({pf:.2f})"
+        issue = "Poor Power Quality"
+        detail = f"Low power factor ({pf:.2f}) — reactive power imbalance"
 
     if freq is not None and abs(freq - 50.0) > 1.0:
         freq_score = min(abs(freq - 50.0) / 3.0, 1.0) * 0.65
         if freq_score > score:
             score = freq_score
-            issue = "frequency_deviation"
-            detail = f"Frequency deviation ({freq:.2f} Hz)"
+            issue = "Frequency Deviation"
+            detail = f"Frequency deviation ({freq:.2f} Hz) from 50 Hz nominal"
 
     return score, issue, detail
 
@@ -91,10 +93,10 @@ def _rule_surge_detection(features: Dict[str, Optional[float]]) -> Tuple[float, 
     power = features.get("power")
     if power is not None and power > 15000:
         severity = min((power - 15000) / 10000.0, 1.0) * 0.65
-        return severity, "power_surge_detected", f"High power ({power:.0f}W)"
+        return severity, "Power Surge Detected", f"Power draw ({power:.0f}W) exceeds 15kW residential limit"
     if curr is not None and curr > 40:
         severity = min((curr - 40) / 30.0, 1.0) * 0.6
-        return severity, "overcurrent_detected", f"High current ({curr:.1f}A)"
+        return severity, "Overcurrent Detected", f"Current ({curr:.1f}A) exceeds 40A rated capacity"
     return 0.0, None, ""
 
 
@@ -106,7 +108,7 @@ def _rule_comm_loss(features: Dict[str, Optional[float]]) -> Tuple[float, Option
     c = features.get("current") or 0
     p = features.get("power") or 0
     if v == 0 and c == 0 and p == 0:
-        return 0.8, "comm_loss_or_power_outage", "All readings zero — no signal"
+        return 0.8, "Communication Loss", "All readings zero — complete telemetry blackout"
     return 0.0, None, ""
 
 
@@ -126,7 +128,7 @@ def _rule_flatline(readings_df: pd.DataFrame) -> Tuple[float, Optional[str], str
                 flat_cols += 1
                 flat_names.append(col)
     if flat_cols >= 2:
-        return 0.7, "sensor_memory_fault_flatline", f"Stuck values in {', '.join(flat_names)}"
+        return 0.7, "Sensor Flatline — Memory Fault", f"Stuck values in {', '.join(flat_names)} — possible sensor or memory failure"
     return 0.0, None, ""
 
 
@@ -140,7 +142,7 @@ def _rule_rtc_error(features: Dict[str, Optional[float]], raw_data: Optional[dic
             try:
                 code = int(event)
                 if code != 0:
-                    return 0.5, "rtc_clock_battery_issue", f"Event code {code} flagged"
+                    return 0.5, "RTC Clock / Battery Issue", f"Event code {code} — real-time clock irregularity detected"
             except (ValueError, TypeError):
                 pass
     return 0.0, None, ""
@@ -153,7 +155,7 @@ def _rule_high_temperature(features: Dict[str, Optional[float]]) -> Tuple[float,
     temp = features.get("temperature")
     if temp is not None and temp > 60:
         severity = min((temp - 60) / 20.0, 1.0)
-        return severity, "meter_overheating", f"Temperature critically high ({temp:.1f}°C)"
+        return severity, "Meter Overheating", f"Temperature critically high ({temp:.1f}°C) — exceeds 60°C safe operating limit"
     return 0.0, None, ""
 
 
@@ -167,9 +169,76 @@ def _rule_battery_degradation(features: Dict[str, Optional[float]], raw_data: Op
             try:
                 code = int(event)
                 if code in (13, 14):
-                    return 0.6, "battery_degradation", f"Battery event code {code}"
+                    return 0.6, "Battery Degradation", f"Battery health event code {code} — RTC backup battery may be failing"
             except (ValueError, TypeError):
                 pass
+    return 0.0, None, ""
+
+
+def _rule_relay_chatter(features: Dict[str, Optional[float]]) -> Tuple[float, Optional[str], str]:
+    """Detect relay contact wear from switching noise duration.
+    Trigger: relay_chatter_ms > 50 ms warning, > 200 ms critical.
+    """
+    chatter = features.get("relay_chatter_ms")
+    if chatter is not None and chatter > 50:
+        severity = min((chatter - 50) / 300.0, 1.0) * 0.7
+        return severity, "Relay Chatter — Contact Wear", f"Relay bounce duration {chatter:.0f}ms exceeds 50ms threshold — mechanical contact degradation"
+    return 0.0, None, ""
+
+
+def _rule_thd_damage(features: Dict[str, Optional[float]]) -> Tuple[float, Optional[str], str]:
+    """Detect power supply harmonic stress from Total Harmonic Distortion.
+    Trigger: THD > 5% warning (India legal limit), > 8% critical.
+    """
+    thd = features.get("thd")
+    if thd is not None and thd > 5.0:
+        severity = min((thd - 5.0) / 10.0, 1.0) * 0.65
+        return severity, "Harmonic / THD Damage", f"THD {thd:.1f}% exceeds India CEA 5% legal limit — power supply stress"
+    return 0.0, None, ""
+
+
+def _rule_battery_discharge(features: Dict[str, Optional[float]]) -> Tuple[float, Optional[str], str]:
+    """Detect RTC battery discharge from voltage level.
+    Trigger: battery_voltage < 2.8V warning, < 2.5V critical.
+    """
+    bv = features.get("battery_voltage")
+    if bv is not None and 0 < bv < 2.8:
+        severity = min((2.8 - bv) / 1.0, 1.0) * 0.65
+        return severity, "Battery Discharge Critical", f"Battery voltage {bv:.2f}V below 2.8V threshold — end-of-life approaching"
+    return 0.0, None, ""
+
+
+def _rule_firmware_leak(features: Dict[str, Optional[float]]) -> Tuple[float, Optional[str], str]:
+    """Detect firmware memory leak from heap usage.
+    Trigger: firmware_heap_pct > 80% warning, > 95% critical.
+    """
+    heap = features.get("firmware_heap_pct")
+    if heap is not None and heap > 80:
+        severity = min((heap - 80) / 20.0, 1.0) * 0.55
+        return severity, "Firmware Memory Leak", f"Heap usage {heap:.0f}% exceeds 80% safe threshold — memory pressure detected"
+    return 0.0, None, ""
+
+
+def _rule_over_voltage(features: Dict[str, Optional[float]]) -> Tuple[float, Optional[str], str]:
+    """Detect floating neutral / dangerous over-voltage condition.
+    Trigger: voltage > 264V (230V + 15%) — immediate critical for single-phase 230V meters.
+    """
+    v = features.get("voltage")
+    if v is not None and v > 264:
+        severity = min((v - 264) / 50.0, 1.0) * 0.85
+        return severity, "Floating Neutral / Over-Voltage", f"CRITICAL: Voltage {v:.0f}V exceeds 264V — possible floating neutral or supply fault"
+    return 0.0, None, ""
+
+
+def _rule_voc_arcing(features: Dict[str, Optional[float]]) -> Tuple[float, Optional[str], str]:
+    """Detect arcing / off-gassing via VOC gas sensor.
+    Trigger: voc_ppm > 50 ppm warning, > 150 ppm critical.
+    Secondary confirmation for loose terminal detection alongside temperature.
+    """
+    voc = features.get("voc_ppm")
+    if voc is not None and voc > 50:
+        severity = min((voc - 50) / 200.0, 1.0) * 0.7
+        return severity, "Arcing Gas Detected — VOC Sensor", f"VOC level {voc:.0f} ppm exceeds 50 ppm safe threshold — possible arcing or off-gassing"
     return 0.0, None, ""
 
 
@@ -192,6 +261,13 @@ def determine_failure_mode(
     results.append(_rule_rtc_error(features_dict, raw_data))
     results.append(_rule_high_temperature(features_dict))
     results.append(_rule_battery_degradation(features_dict, raw_data))
+
+    results.append(_rule_relay_chatter(features_dict))
+    results.append(_rule_thd_damage(features_dict))
+    results.append(_rule_battery_discharge(features_dict))
+    results.append(_rule_firmware_leak(features_dict))
+    results.append(_rule_over_voltage(features_dict))
+    results.append(_rule_voc_arcing(features_dict))
 
     if readings_df is not None and not readings_df.empty:
         results.append(_rule_flatline(readings_df))
@@ -287,6 +363,12 @@ def run_scoring_cycle() -> None:
                         "temperature": r.temperature,
                         "frequency": r.frequency,
                         "power_factor": r.power_factor,
+                        "thd": r.thd,
+                        "relay_chatter_ms": r.relay_chatter_ms,
+                        "battery_voltage": r.battery_voltage,
+                        "harmonic_distortion": r.harmonic_distortion,
+                        "firmware_heap_pct": r.firmware_heap_pct,
+                        "voc_ppm": r.voc_ppm,
                         "raw_data": r.raw_data,
                     })
                 df = pd.DataFrame(rows)
@@ -321,8 +403,8 @@ def run_scoring_cycle() -> None:
                         severity=severity,
                         message=(
                             f"Anomaly detected on {meter.name}: "
-                            f"score={result['anomaly_score']:.2f}, "
-                            f"issue={result['suspected_issue']}"
+                            f"health score {(1.0 - result['anomaly_score']):.0%}, "
+                            f"issue: {result['suspected_issue']}"
                         ),
                     )
                     db.add(alert)

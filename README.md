@@ -1,29 +1,31 @@
-# Pro-Vigil — AI-Powered Predictive Maintenance for Smart Electricity Meters
+# ProVigil — AI-Powered Predictive Maintenance for Smart Electricity Meters
 
-**INSTINCT 4.0 Hackathon (H2S)**
-
-Pro-Vigil is an end-to-end platform that detects failing smart electricity meters *before* they cause outages. It combines edge sensing (ESP32), a telemetry simulator, ML-based anomaly detection (Isolation Forest + LOF), a FastAPI backend, and a React dashboard — all aligned to India's DLMS/COSEM and IS 15959 smart-meter standards.
+ProVigil is an end-to-end platform that detects failing smart electricity meters *before* they cause outages. It combines edge intelligence (ESP32 TinyML), multi-model anomaly detection, a real-time scoring engine (FastAPI), a React operations dashboard, and a field mobile app with VLM-based visual validation — all aligned to India's DLMS/COSEM and IS 15959 smart-meter standards.
 
 ---
 
 ## Key Features
 
-- **Predictive Anomaly Detection** — 19-feature ML pipeline (Isolation Forest + LOF) trained on synthetic DLMS-style telemetry
-- **Rule-Based Fault Classification** — Deterministic checks for loose terminals, comm loss, sensor faults, and RTC errors
-- **Real-Time Scoring** — Background scoring cycle runs every 30 seconds with combined ML + rule scores
+- **Multi-Model Anomaly Detection** — 17-rule deterministic scoring engine + IsolationForest/LOF ensemble across 19 engineered features
+- **Component-Level Digital Twin** — Six-subsystem health decomposition (terminals, relay, battery, SMPS, display, comms)
+- **Network Intelligence** — Peer mesh consensus isolates local faults from grid-wide events using transformer-feeder topology
+- **Real-Time Scoring** — Background scoring cycle runs every 30 seconds with automatic alert and work order generation
 - **DLMS/COSEM Compliant** — OBIS code mapping per IS 15959 / IEC 62056; 25 Indian smart-meter event codes
-- **Smart Meter Simulator** — 5 fault injectors (thermal stress, comm loss, sensor fault, battery fault, consumption anomaly)
-- **React Dashboard** — Fleet overview, per-meter drill-down, geographic map, alerting, and work-order management
+- **AI-Powered Insights** — GPT-4o root cause analysis, automated work order generation, and email alerting
+- **React Operations Dashboard** — Fleet overview, per-meter diagnostics, network map, guided tour, and maintenance queue
+- **Field Mobile App** — VLM-based installation quality validation via camera capture
 - **ESP32 Edge Firmware** — CT clamp + DS18B20 + pulse counting with on-device anomaly detection
-- **Docker Ready** — Compose file for Mosquitto MQTT + Backend + Dashboard
+- **Docker Ready** — Compose file for production deployment
 
 ## Architecture
 
 ```
-ESP32 Edge Device ──► MQTT/HTTP ──► FastAPI Backend ──► SQLite
+ESP32 Edge Device ──► MQTT/HTTP ──► FastAPI Backend ──► SQLite/PostgreSQL
                                         │                  │
-                                   Scoring Service    React Dashboard
+                                   Scoring Engine     React Dashboard
                                    (ML + Rules)      (Vite + Tailwind)
+                                        │
+                                   Azure OpenAI ◄── LLM Summarization
 ```
 
 ## Quick Start
@@ -33,23 +35,23 @@ cp .env.example .env
 make setup          # Install Python + Node dependencies
 make train          # Generate data & train ML models
 make run-backend    # Start backend on :8000
-make run-scenario   # Populate data with simulator
-# Open http://localhost:8000
+make run-dashboard  # Start dashboard on :3000
 ```
 
-> See [Setup_Steps.md](Setup_Steps.md) for detailed instructions, API reference, and troubleshooting.
+> See [docs/Setup_Steps.md](docs/Setup_Steps.md) for detailed instructions, API reference, and troubleshooting.
 
 ## Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
+|-------|------------|
 | Edge | ESP32, Arduino, PlatformIO, CT clamp, DS18B20 |
-| Backend | Python 3.10+, FastAPI, SQLAlchemy, APScheduler |
-| ML | scikit-learn (IsolationForest, LOF), pandas, numpy |
-| Dashboard | React 18, Vite, Tailwind CSS, Recharts, React Leaflet |
+| Backend | Python 3.11+, FastAPI, SQLAlchemy, APScheduler, Azure OpenAI |
+| ML | scikit-learn (IsolationForest, LOF), pandas, numpy, PyTorch (planned) |
+| Dashboard | React 18, Vite, Tailwind CSS, Recharts, Framer Motion, React-Joyride |
+| Mobile | React Native, Expo 52, VLM camera integration |
 | Messaging | Eclipse Mosquitto (MQTT), paho-mqtt |
-| Database | SQLite (dev), upgradeable to PostgreSQL |
-| Infra | Docker Compose, Makefile |
+| Database | SQLite (dev), PostgreSQL (production) |
+| Infra | Docker Compose, Nginx, AWS EC2 |
 
 ## License
 

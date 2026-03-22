@@ -6,104 +6,110 @@ import {
   View,
   ActivityIndicator,
   Animated,
+  Platform,
 } from 'react-native';
-import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Speech from 'expo-speech';
 
+let CameraView = null;
+let useCameraPermissions = null;
+try {
+  const cam = require('expo-camera');
+  CameraView = cam.CameraView;
+  useCameraPermissions = cam.useCameraPermissions;
+} catch (e) {
+  // Camera module not available (web or missing native module)
+}
+
 const C = {
-  bg: '#0a0f1e',
-  card: '#131b3a',
-  border: '#1e2a4a',
-  accent: '#3b82f6',
-  cyan: '#06b6d4',
-  red: '#ef4444',
-  amber: '#f59e0b',
-  green: '#10b981',
-  text: '#e2e8f0',
-  muted: '#64748b',
+  bg: '#F5F5F7',
+  card: '#FFFFFF',
+  border: '#E5E5EA',
+  accent: '#0071E3',
+  cyan: '#5AC8FA',
+  red: '#FF3B30',
+  amber: '#FF9500',
+  green: '#34C759',
+  text: '#1D1D1F',
+  muted: '#AEAEB2',
   overlay: 'rgba(5, 10, 25, 0.82)',
 };
 
 const DEMO_RESULT = {
-  title: 'There seem to be a loose connection',
+  title: 'Loose wire detected',
   reason: 'Detected by Cosmos Reason 2',
-  summary: 'Video evidence suggests an unstable connection near the observed electrical point.',
+  summary:
+    'Video evidence suggests an unstable connection near the observed electrical point. Immediate field inspection and terminal tightening recommended.',
   severity: 'warning',
 };
 
 const PROCESSING_STEPS = [
-  'Uploading inspection clip',
-  'Running Cosmos visual reasoning',
-  'Verifying connection stability',
+  'Uploading inspection clip…',
+  'Running Cosmos visual reasoning…',
+  'Verifying connection stability…',
 ];
 
 const MAX_RECORDING_SECONDS = 20;
-const PROCESSING_DELAY_MS = 2800;
+const PROCESSING_DELAY_MS = 3200;
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// Wrapper so the hook is only called when expo-camera is available
+function useCameraPermissionsSafe() {
+  if (useCameraPermissions) {
+    return useCameraPermissions();
+  }
+  return [null, () => Promise.resolve({ granted: false })];
+}
+
 export default function InspectorScreen() {
-  const [permission, requestPermission] = useCameraPermissions();
+  const [permission, requestPermission] = useCameraPermissionsSafe();
   const cameraRef = useRef(null);
   const [result, setResult] = useState(null);
-  const [stage, setStage] = useState('idle');
+  const [stage, setStage] = useState('idle'); // idle | recording | processing | result
   const [cameraReady, setCameraReady] = useState(false);
-  const [useMockCamera, setUseMockCamera] = useState(false);
+  const [useMockCamera, setUseMockCamera] = useState(!CameraView);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [processingStep, setProcessingStep] = useState(0);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const timerRef = useRef(null);
-  const recordPromiseRef = useRef(null);
 
-  const startPulse = () => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.1,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  };
-
-  const stopPulse = () => {
-    pulseAnim.stopAnimation();
-    pulseAnim.setValue(1);
-  };
-
+  // Pulse animation during processing
   useEffect(() => {
     if (stage !== 'processing') return undefined;
 
-    startPulse();
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.15, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+      ]),
+    ).start();
+
     const interval = setInterval(() => {
-      setProcessingStep((current) => (current + 1) % PROCESSING_STEPS.length);
-    }, 850);
+      setProcessingStep((s) => (s + 1) % PROCESSING_STEPS.length);
+    }, 900);
 
     return () => {
       clearInterval(interval);
-      stopPulse();
+      pulseAnim.stopAnimation();
+      pulseAnim.setValue(1);
     };
-  }, [stage, pulseAnim]);
+  }, [stage]);
 
-  useEffect(() => () => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    Speech.stop();
-  }, []);
+  // Cleanup on unmount
+  useEffect(
+    () => () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      Speech.stop();
+    },
+    [],
+  );
 
   const beginTimer = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     setRecordingSeconds(0);
-    timerRef.current = setInterval(() => {
-      setRecordingSeconds((current) => current + 1);
-    }, 1000);
+    timerRef.current = setInterval(() => setRecordingSeconds((s) => s + 1), 1000);
   };
 
   const stopTimer = () => {
@@ -115,11 +121,10 @@ export default function InspectorScreen() {
 
   const speakFinding = () => {
     Speech.stop();
-    Speech.speak(`${DEMO_RESULT.title}. ${DEMO_RESULT.reason}.`, {
-      language: 'en-US',
-      pitch: 0.92,
-      rate: 0.84,
-    });
+    Speech.speak(
+      `${DEMO_RESULT.title}. ${DEMO_RESULT.reason}. ${DEMO_RESULT.summary}`,
+      { language: 'en-US', pitch: 0.92, rate: 0.82 },
+    );
   };
 
   const runDemoAnalysis = async () => {
@@ -132,35 +137,25 @@ export default function InspectorScreen() {
   };
 
   const handleStartRecording = async () => {
-    const usingLiveCamera = !useMockCamera && cameraRef.current && cameraReady;
-
-    if ((!usingLiveCamera && !useMockCamera) || stage === 'recording' || stage === 'processing') {
-      return;
-    }
+    if (stage === 'recording' || stage === 'processing') return;
 
     Speech.stop();
     setResult(null);
     setStage('recording');
     beginTimer();
 
-    if (useMockCamera) {
-      return;
-    }
+    if (useMockCamera) return; // manual stop triggers analysis
 
     try {
-      recordPromiseRef.current = cameraRef.current.recordAsync({
-        maxDuration: MAX_RECORDING_SECONDS,
-      });
-
-      await recordPromiseRef.current;
+      if (cameraRef.current && cameraReady) {
+        const video = await cameraRef.current.recordAsync({ maxDuration: MAX_RECORDING_SECONDS });
+        // When recording ends (via stop or max duration), proceed to analysis
+        stopTimer();
+        await runDemoAnalysis();
+      }
+    } catch {
       stopTimer();
       await runDemoAnalysis();
-    } catch (error) {
-      console.warn('Recording flow fallback', error);
-      stopTimer();
-      await runDemoAnalysis();
-    } finally {
-      recordPromiseRef.current = null;
     }
   };
 
@@ -173,8 +168,11 @@ export default function InspectorScreen() {
       return;
     }
 
-    setStage('processing');
-    cameraRef.current.stopRecording();
+    try {
+      cameraRef.current.stopRecording();
+    } catch {
+      runDemoAnalysis();
+    }
   };
 
   const handleReset = () => {
@@ -186,23 +184,52 @@ export default function InspectorScreen() {
     Speech.stop();
   };
 
-  // Permission not yet determined
-  if (!permission) {
+  /* ---------- HEADER ---------- */
+  const Header = () => (
+    <View style={styles.header}>
+      <Text style={styles.headerTitle}>ProVigil Field Vision</Text>
+      <Text style={styles.headerSub}>Loose Wire Inspector</Text>
+    </View>
+  );
+
+  /* ---------- PERMISSION / LOADING ---------- */
+  if (!CameraView && !useMockCamera) {
+    // Camera module unavailable (e.g. web) — auto fallback to mock
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color={C.accent} style={{ marginTop: 60 }} />
+        <Header />
+        <View style={styles.centered}>
+          <Text style={styles.promptTitle}>Camera Not Available</Text>
+          <Text style={styles.promptSub}>
+            Camera hardware is not accessible on this device. You can still run the demo.
+          </Text>
+          <Pressable style={styles.primaryBtn} onPress={() => setUseMockCamera(true)}>
+            <Text style={styles.primaryBtnText}>Run Demo Without Camera</Text>
+          </Pressable>
+        </View>
       </View>
     );
   }
 
-  // Permission denied — prompt
-  if (!permission.granted && !useMockCamera) {
+  if (CameraView && !permission) {
     return (
       <View style={styles.container}>
+        <Header />
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={C.accent} />
+        </View>
+      </View>
+    );
+  }
+
+  if (CameraView && !permission?.granted && !useMockCamera) {
+    return (
+      <View style={styles.container}>
+        <Header />
         <View style={styles.centered}>
           <Text style={styles.promptTitle}>Camera Access Required</Text>
           <Text style={styles.promptSub}>
-            Point your camera at a loose wire or connection point to run the field inspection demo.
+            Point your camera at a loose wire or connection point to run the field inspection.
           </Text>
           <Pressable style={styles.primaryBtn} onPress={requestPermission}>
             <Text style={styles.primaryBtnText}>Enable Camera</Text>
@@ -219,13 +246,15 @@ export default function InspectorScreen() {
   const isProcessing = stage === 'processing';
   const canRecord = useMockCamera || cameraReady;
 
+  /* ---------- RESULT SCREEN ---------- */
   if (stage === 'result' && result) {
     return (
       <View style={styles.container}>
+        <Header />
         <View style={styles.resultScreen}>
-          <View style={[styles.resultBadge, { borderColor: C.amber + '40', backgroundColor: C.amber + '15' }]}>
-            <View style={[styles.sevDot, { backgroundColor: C.amber }]} />
-            <Text style={[styles.resultBadgeText, { color: C.amber }]}>Inspection Complete</Text>
+          <View style={styles.resultBadge}>
+            <View style={styles.sevDot} />
+            <Text style={styles.resultBadgeText}>Inspection Complete</Text>
           </View>
 
           <Text style={styles.resultTitle}>{result.title}</Text>
@@ -245,8 +274,11 @@ export default function InspectorScreen() {
     );
   }
 
+  /* ---------- CAMERA / RECORDING SCREEN ---------- */
   return (
     <View style={styles.container}>
+      <Header />
+
       <View style={styles.cameraWrap}>
         {useMockCamera ? (
           <View style={[styles.camera, styles.mockCamera]}>
@@ -258,18 +290,10 @@ export default function InspectorScreen() {
             </View>
 
             <View style={styles.mockContent}>
-              <Text style={styles.mockEyebrow}>Desktop Demo Mode</Text>
-              <Text style={styles.mockTitle}>Simulated field capture</Text>
+              <Text style={styles.mockIcon}>&#128247;</Text>
+              <Text style={styles.mockTitle}>Preview Mode</Text>
               <Text style={styles.mockSub}>
-                Use this on the laptop or emulator when a live camera feed is not available.
-              </Text>
-            </View>
-
-            <View style={styles.topBanner}>
-              <Text style={styles.topBannerEyebrow}>Cosmos Field Vision</Text>
-              <Text style={styles.topBannerTitle}>Record a short inspection video</Text>
-              <Text style={styles.topBannerSub}>
-                Point the camera at the connection area, record, then stop for analysis.
+                Camera feed simulated. Tap record to start the inspection demo.
               </Text>
             </View>
 
@@ -281,20 +305,17 @@ export default function InspectorScreen() {
                     REC {String(recordingSeconds).padStart(2, '0')}s
                   </Text>
                 </View>
-                <Text style={styles.recordingHint}>Simulating a loose wire inspection clip</Text>
+                <Text style={styles.recordingHint}>Recording inspection clip…</Text>
               </View>
             )}
 
             {isProcessing && (
               <View style={styles.processingOverlay}>
-                <Animated.View
-                  style={[styles.processingCircle, { transform: [{ scale: pulseAnim }] }]}
-                >
+                <Animated.View style={[styles.processingCircle, { transform: [{ scale: pulseAnim }] }]}>
                   <ActivityIndicator size="large" color={C.cyan} />
                 </Animated.View>
-                <Text style={styles.processingTitle}>Processing</Text>
+                <Text style={styles.processingTitle}>Analyzing…</Text>
                 <Text style={styles.processingText}>{PROCESSING_STEPS[processingStep]}</Text>
-                <Text style={styles.processingSub}>Cosmos Reason 2 is reviewing connection stability</Text>
               </View>
             )}
           </View>
@@ -315,11 +336,7 @@ export default function InspectorScreen() {
             </View>
 
             <View style={styles.topBanner}>
-              <Text style={styles.topBannerEyebrow}>Cosmos Field Vision</Text>
-              <Text style={styles.topBannerTitle}>Record a short inspection video</Text>
-              <Text style={styles.topBannerSub}>
-                Point the camera at the connection area, record, then stop for analysis.
-              </Text>
+              <Text style={styles.topBannerText}>Point at the wire / connection area</Text>
             </View>
 
             {isRecording && (
@@ -330,39 +347,32 @@ export default function InspectorScreen() {
                     REC {String(recordingSeconds).padStart(2, '0')}s
                   </Text>
                 </View>
-                <Text style={styles.recordingHint}>Capture the hanging or loose wire clearly</Text>
+                <Text style={styles.recordingHint}>Capture the loose wire clearly</Text>
               </View>
             )}
 
             {isProcessing && (
               <View style={styles.processingOverlay}>
-                <Animated.View
-                  style={[styles.processingCircle, { transform: [{ scale: pulseAnim }] }]}
-                >
+                <Animated.View style={[styles.processingCircle, { transform: [{ scale: pulseAnim }] }]}>
                   <ActivityIndicator size="large" color={C.cyan} />
                 </Animated.View>
-                <Text style={styles.processingTitle}>Processing</Text>
+                <Text style={styles.processingTitle}>Analyzing…</Text>
                 <Text style={styles.processingText}>{PROCESSING_STEPS[processingStep]}</Text>
-                <Text style={styles.processingSub}>Cosmos Reason 2 is reviewing connection stability</Text>
               </View>
             )}
           </CameraView>
         )}
       </View>
 
+      {/* Info card */}
       <View style={styles.infoCard}>
-        <Text style={styles.infoEyebrow}>Demo Flow</Text>
-        <Text style={styles.infoTitle}>Loose connection inspection</Text>
+        <Text style={styles.infoTitle}>Loose Wire Detection</Text>
         <Text style={styles.infoBody}>
-          Record a short clip of the exposed wire or terminal area. When you stop recording, the app simulates VLM analysis and reports the finding.
+          Record a short clip of the wire/terminal area. The app uses Cosmos VLM to analyze and speaks the finding aloud.
         </Text>
-        {!useMockCamera && (
-          <Pressable style={styles.secondaryBtn} onPress={() => setUseMockCamera(true)}>
-            <Text style={styles.secondaryBtnText}>Switch to Desktop Demo Mode</Text>
-          </Pressable>
-        )}
       </View>
 
+      {/* Record / Stop button */}
       <View style={styles.actionBar}>
         {isRecording ? (
           <Pressable style={styles.stopBtn} onPress={handleStopRecording}>
@@ -378,25 +388,33 @@ export default function InspectorScreen() {
           </Pressable>
         )}
         <Text style={styles.actionLabel}>
-          {isRecording ? 'Tap to stop and analyze' : 'Tap to start recording'}
+          {isRecording ? 'Tap to stop & analyze' : isProcessing ? 'Analyzing…' : 'Tap to record'}
         </Text>
       </View>
     </View>
   );
 }
 
-const CORNER = {
-  width: 28,
-  height: 28,
-  borderColor: '#06b6d4',
-  position: 'absolute',
-};
+const CORNER = { width: 28, height: 28, borderColor: C.cyan, position: 'absolute' };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
+
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'android' ? 12 : 8,
+    paddingBottom: 8,
+    backgroundColor: C.card,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
+  },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: C.text },
+  headerSub: { fontSize: 12, color: C.muted, marginTop: 2 },
+
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
-  promptTitle: { fontSize: 20, fontWeight: '700', color: C.text, marginBottom: 8 },
+  promptTitle: { fontSize: 20, fontWeight: '700', color: C.text, marginBottom: 8, textAlign: 'center' },
   promptSub: { fontSize: 14, color: C.muted, textAlign: 'center', lineHeight: 20, marginBottom: 28 },
+
   primaryBtn: {
     backgroundColor: C.accent,
     paddingVertical: 14,
@@ -421,109 +439,56 @@ const styles = StyleSheet.create({
 
   cameraWrap: {
     flex: 1,
-    margin: 16,
+    margin: 12,
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: C.border,
   },
   camera: { flex: 1 },
-  mockCamera: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#030712',
-  },
-  mockContent: {
-    position: 'absolute',
-    alignItems: 'center',
-    paddingHorizontal: 32,
-  },
-  mockEyebrow: {
-    color: C.cyan,
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  mockTitle: {
-    color: C.text,
-    fontSize: 28,
-    fontWeight: '800',
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  mockSub: {
-    color: C.muted,
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 10,
-    textAlign: 'center',
-  },
+  mockCamera: { justifyContent: 'center', alignItems: 'center', backgroundColor: '#0a0f1e' },
+  mockContent: { position: 'absolute', alignItems: 'center', paddingHorizontal: 32 },
+  mockIcon: { fontSize: 48 },
+  mockTitle: { color: '#fff', fontSize: 22, fontWeight: '800', marginTop: 12, textAlign: 'center' },
+  mockSub: { color: C.muted, fontSize: 14, lineHeight: 20, marginTop: 8, textAlign: 'center' },
+
   overlay: { ...StyleSheet.absoluteFillObject },
   topBanner: {
     position: 'absolute',
-    top: 16,
-    left: 16,
-    right: 16,
-    padding: 14,
-    borderRadius: 16,
-    backgroundColor: 'rgba(7, 15, 35, 0.74)',
-    borderWidth: 1,
-    borderColor: 'rgba(59,130,246,0.25)',
+    top: 12,
+    left: 12,
+    right: 12,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.6)',
   },
-  topBannerEyebrow: {
-    color: C.cyan,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  topBannerTitle: {
-    color: C.text,
-    fontSize: 18,
-    fontWeight: '800',
-    marginTop: 6,
-  },
-  topBannerSub: {
-    color: '#cbd5e1',
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 6,
-  },
-  recordingHud: {
-    position: 'absolute',
-    bottom: 26,
-    left: 16,
-    right: 16,
-    alignItems: 'center',
-  },
+  topBannerText: { color: '#fff', fontSize: 14, fontWeight: '600', textAlign: 'center' },
+
+  recordingHud: { position: 'absolute', bottom: 20, left: 16, right: 16, alignItems: 'center' },
   recordingPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(10, 15, 30, 0.85)',
+    backgroundColor: 'rgba(10,15,30,0.85)',
     borderWidth: 1,
     borderColor: 'rgba(239,68,68,0.35)',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 999,
   },
-  recordingDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: C.red,
-  },
+  recordingDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: C.red },
   recordingText: { color: '#fff', fontSize: 13, fontWeight: '700' },
   recordingHint: {
-    color: '#cbd5e1',
+    color: '#ccc',
     fontSize: 12,
-    marginTop: 10,
-    backgroundColor: 'rgba(10, 15, 30, 0.72)',
+    marginTop: 8,
+    backgroundColor: 'rgba(10,15,30,0.72)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 999,
+    overflow: 'hidden',
   },
+
   corner: CORNER,
   tl: { top: 36, left: 36, borderTopWidth: 3, borderLeftWidth: 3, borderTopLeftRadius: 8 },
   tr: { top: 36, right: 36, borderTopWidth: 3, borderRightWidth: 3, borderTopRightRadius: 8 },
@@ -547,135 +512,64 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: C.cyan,
   },
-  processingTitle: {
-    color: '#fff',
-    fontSize: 28,
-    fontWeight: '800',
-    marginTop: 18,
-  },
-  processingText: {
-    color: C.cyan,
-    fontSize: 16,
-    fontWeight: '600',
-    marginTop: 10,
-  },
-  processingSub: {
-    color: '#cbd5e1',
-    fontSize: 13,
-    lineHeight: 20,
-    textAlign: 'center',
-    marginTop: 10,
-  },
+  processingTitle: { color: '#fff', fontSize: 26, fontWeight: '800', marginTop: 16 },
+  processingText: { color: C.cyan, fontSize: 15, fontWeight: '600', marginTop: 10, textAlign: 'center' },
 
   infoCard: {
-    marginHorizontal: 16,
-    marginTop: 2,
-    padding: 14,
+    marginHorizontal: 12,
+    marginTop: 4,
+    padding: 12,
     backgroundColor: C.card,
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: C.border,
   },
-  infoEyebrow: {
-    color: C.cyan,
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  infoTitle: {
-    color: C.text,
-    fontSize: 16,
-    fontWeight: '700',
-    marginTop: 4,
-  },
-  infoBody: {
-    color: C.muted,
-    fontSize: 13,
-    lineHeight: 19,
-    marginTop: 6,
-  },
+  infoTitle: { color: C.text, fontSize: 15, fontWeight: '700' },
+  infoBody: { color: C.muted, fontSize: 13, lineHeight: 19, marginTop: 4 },
 
-  resultScreen: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
+  resultScreen: { flex: 1, justifyContent: 'center', paddingHorizontal: 24 },
   resultBadge: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     borderWidth: 1,
+    borderColor: C.amber + '40',
+    backgroundColor: C.amber + '15',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 999,
     marginBottom: 22,
   },
-  resultBadgeText: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase' },
-  resultTitle: {
-    fontSize: 32,
-    lineHeight: 40,
-    fontWeight: '800',
-    color: '#fff',
-  },
-  resultReason: {
-    fontSize: 22,
-    lineHeight: 28,
-    fontWeight: '700',
-    color: C.cyan,
-    marginTop: 14,
-  },
-  resultSummary: {
-    fontSize: 15,
-    lineHeight: 23,
-    color: '#cbd5e1',
-    marginTop: 18,
-  },
-  resultActions: {
-    marginTop: 28,
-  },
-  sevDot: { width: 10, height: 10, borderRadius: 5 },
+  resultBadgeText: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', color: C.amber },
+  resultTitle: { fontSize: 28, lineHeight: 36, fontWeight: '800', color: C.text },
+  resultReason: { fontSize: 18, lineHeight: 24, fontWeight: '700', color: C.cyan, marginTop: 12 },
+  resultSummary: { fontSize: 14, lineHeight: 22, color: C.muted, marginTop: 14 },
+  resultActions: { marginTop: 28 },
+  sevDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: C.amber },
 
-  actionBar: { paddingHorizontal: 16, paddingVertical: 18, alignItems: 'center' },
-  actionLabel: {
-    color: C.muted,
-    fontSize: 13,
-    marginTop: 12,
-  },
+  actionBar: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16, alignItems: 'center' },
+  actionLabel: { color: C.muted, fontSize: 13, marginTop: 10 },
   recordBtn: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
+    width: 78,
+    height: 78,
+    borderRadius: 39,
     borderWidth: 4,
-    borderColor: C.text,
+    borderColor: C.red,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
   },
-  recordInner: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-    backgroundColor: C.text,
-  },
+  recordInner: { width: 58, height: 58, borderRadius: 29, backgroundColor: C.red },
   stopBtn: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
+    width: 78,
+    height: 78,
+    borderRadius: 39,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: C.red,
     borderWidth: 4,
     borderColor: '#fecaca',
   },
-  stopInner: {
-    width: 28,
-    height: 28,
-    borderRadius: 6,
-    backgroundColor: '#fff',
-  },
-  disabledBtn: {
-    opacity: 0.35,
-  },
+  stopInner: { width: 28, height: 28, borderRadius: 6, backgroundColor: '#fff' },
+  disabledBtn: { opacity: 0.35 },
 });

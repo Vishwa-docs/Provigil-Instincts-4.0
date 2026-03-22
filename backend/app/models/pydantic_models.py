@@ -18,6 +18,9 @@ class MeterResponse(BaseModel):
     name: str
     location_lat: Optional[float] = None
     location_lng: Optional[float] = None
+    ip_address: Optional[str] = None
+    city: Optional[str] = None
+    region: Optional[str] = None
     install_date: Optional[datetime] = None
     status: str
     health_score: float
@@ -50,6 +53,11 @@ class ReadingCreate(BaseModel):
     temperature: Optional[float] = None
     frequency: Optional[float] = None
     power_factor: Optional[float] = None
+    thd: Optional[float] = None
+    relay_chatter_ms: Optional[float] = None
+    battery_voltage: Optional[float] = None
+    harmonic_distortion: Optional[float] = None
+    firmware_heap_pct: Optional[float] = None
     local_alert: bool = False
     raw_data: Optional[Dict[str, Any]] = None
 
@@ -65,6 +73,11 @@ class ReadingResponse(BaseModel):
     temperature: Optional[float] = None
     frequency: Optional[float] = None
     power_factor: Optional[float] = None
+    thd: Optional[float] = None
+    relay_chatter_ms: Optional[float] = None
+    battery_voltage: Optional[float] = None
+    harmonic_distortion: Optional[float] = None
+    firmware_heap_pct: Optional[float] = None
     local_alert: bool
     created_at: datetime
 
@@ -192,5 +205,38 @@ class TelemetryIngest(BaseModel):
     temperature: Optional[float] = None
     frequency: Optional[float] = None
     power_factor: Optional[float] = None
+    thd: Optional[float] = None
+    relay_chatter_ms: Optional[float] = None
+    battery_voltage: Optional[float] = None
+    harmonic_distortion: Optional[float] = None
+    firmware_heap_pct: Optional[float] = None
     local_alert: bool = False
     raw_data: Optional[Dict[str, Any]] = None
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Subscriber
+# ═════════════════════════════════════════════════════════════════════════════
+
+
+class SubscriberCreate(BaseModel):
+    email: str = Field(..., min_length=5, max_length=256)
+
+
+class SubscriberResponse(BaseModel):
+    id: int
+    email: str
+    subscribed_at: datetime
+    is_active: bool
+
+    class Config:
+        from_attributes = True
+
+
+class ScenarioTriggerResponse(BaseModel):
+    meter_id: str
+    alert_id: int
+    work_order_id: int
+    message: str
+    detection_method: str = ""
+    parameters_changed: list = []

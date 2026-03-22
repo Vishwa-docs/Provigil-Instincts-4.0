@@ -3,23 +3,24 @@
 import json
 import logging
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.schemas import Meter, Reading
 from app.models.pydantic_models import TelemetryIngest
 from app.utils.dlms_mapper import translate_dlms_to_internal
+from app.utils.geolocation import get_location_from_ip
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/ingest", tags=["ingest"])
 
 
-def _upsert_meter(db: Session, meter_id: str) -> Meter:
-    """Return the meter row, creating a stub if it doesn't exist yet."""
+def _upsert_meter(db: Session, meter_id: str, client_ip: Optional[str] = None) -> Meter:
+    """Return the meter row, creating an initial record if it doesn't exist yet."""
     meter = db.query(Meter).filter(Meter.id == meter_id).first()
     if not meter:
         meter = Meter(
@@ -30,12 +31,23 @@ def _upsert_meter(db: Session, meter_id: str) -> Meter:
         )
         db.add(meter)
         db.flush()
+
+    # Enrich location from IP if coordinates are not set
+    if client_ip and not meter.location_lat:
+        geo = get_location_from_ip(client_ip)
+        if geo:
+            meter.location_lat = geo.get("lat")
+            meter.location_lng = geo.get("lng")
+            meter.city = geo.get("city")
+            meter.region = geo.get("region")
+            meter.ip_address = client_ip
+
     return meter
 
 
-def _store_reading(db: Session, data: TelemetryIngest) -> Reading:
+def _store_reading(db: Session, data: TelemetryIngest, client_ip: Optional[str] = None) -> Reading:
     """Create a Reading row from ingest data and update the meter's last_seen."""
-    meter = _upsert_meter(db, data.meter_id)
+    meter = _upsert_meter(db, data.meter_id, client_ip=client_ip)
     meter.last_seen = data.timestamp or datetime.now(timezone.utc)
 
     reading = Reading(
@@ -48,6 +60,11 @@ def _store_reading(db: Session, data: TelemetryIngest) -> Reading:
         temperature=data.temperature,
         frequency=data.frequency,
         power_factor=data.power_factor,
+        thd=data.thd,
+        relay_chatter_ms=data.relay_chatter_ms,
+        battery_voltage=data.battery_voltage,
+        harmonic_distortion=data.harmonic_distortion,
+        firmware_heap_pct=data.firmware_heap_pct,
         local_alert=data.local_alert,
     )
     if data.raw_data:
@@ -61,20 +78,21 @@ def _store_reading(db: Session, data: TelemetryIngest) -> Reading:
 
 
 @router.post("/telemetry", status_code=201)
-def ingest_telemetry(body: TelemetryIngest, db: Session = Depends(get_db)):
+def ingest_telemetry(body: TelemetryIngest, request: Request, db: Session = Depends(get_db)):
     """Accept a single telemetry reading."""
-    reading = _store_reading(db, body)
+    reading = _store_reading(db, body, client_ip=request.client.host if request.client else None)
     db.commit()
     db.refresh(reading)
     return {"status": "ok", "reading_id": reading.id}
 
 
 @router.post("/telemetry/batch", status_code=201)
-def ingest_telemetry_batch(body: List[TelemetryIngest], db: Session = Depends(get_db)):
+def ingest_telemetry_batch(body: List[TelemetryIngest], request: Request, db: Session = Depends(get_db)):
     """Accept a batch of telemetry readings."""
+    client_ip = request.client.host if request.client else None
     ids: list[int] = []
     for item in body:
-        reading = _store_reading(db, item)
+        reading = _store_reading(db, item, client_ip=client_ip)
         db.flush()
         ids.append(reading.id)
     db.commit()
@@ -126,6 +144,7 @@ def ingest_dlms(body: dict, db: Session = Depends(get_db)):
         temperature=internal.get("temperature"),
         frequency=internal.get("frequency"),
         power_factor=internal.get("power_factor"),
+        thd=internal.get("thd"),
         local_alert=False,
         raw_data=registers,  # keep original OBIS-keyed payload
     )

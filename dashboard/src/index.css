@@ -3,19 +3,19 @@
 @tailwind utilities;
 
 :root {
-  --color-bg-primary: #0b1022;
-  --color-bg-secondary: #131b3a;
-  --color-bg-card: #1a2347;
-  --color-bg-card-hover: #202b51;
-  --color-border: #28355d;
-  --color-text-primary: #e2e8f0;
-  --color-text-secondary: #94a3b8;
-  --color-text-muted: #64748b;
-  --color-accent-blue: #3b82f6;
-  --color-accent-green: #10b981;
-  --color-accent-amber: #f59e0b;
-  --color-accent-red: #ef4444;
-  --color-accent-cyan: #06b6d4;
+  --color-bg-primary: #F5F5F7;
+  --color-bg-secondary: #FFFFFF;
+  --color-bg-card: #FFFFFF;
+  --color-bg-card-hover: #F9F9FB;
+  --color-border: #E5E5EA;
+  --color-text-primary: #1D1D1F;
+  --color-text-secondary: #86868B;
+  --color-text-muted: #AEAEB2;
+  --color-accent-blue: #0071E3;
+  --color-accent-green: #34C759;
+  --color-accent-amber: #FF9500;
+  --color-accent-red: #FF3B30;
+  --color-accent-cyan: #5AC8FA;
 }
 
 /* Custom Scrollbar */
@@ -25,23 +25,23 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--color-bg-secondary);
+  background: #F5F5F7;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border);
+  background: #C7C7CC;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #374670;
+  background: #AEAEB2;
 }
 
 /* Firefox scrollbar */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-border) var(--color-bg-secondary);
+  scrollbar-color: #C7C7CC #F5F5F7;
 }
 
 /* Leaflet map container */
@@ -52,14 +52,14 @@
   z-index: 1;
 }
 
-/* Card glass effect */
+/* Light theme component classes */
 @layer components {
   .card {
-    @apply bg-navy-800/60 backdrop-blur-sm border border-navy-600/40 rounded-xl;
+    @apply bg-white rounded-2xl shadow-sm border border-gray-100;
   }
 
   .card-hover {
-    @apply card hover:border-navy-500/60 hover:bg-navy-800/80 transition-all duration-200;
+    @apply card hover:shadow-md hover:scale-[1.01] transition-all duration-200;
   }
 
   .stat-card {
@@ -71,43 +71,43 @@
   }
 
   .badge-healthy {
-    @apply badge bg-emerald-500/15 text-emerald-400 border border-emerald-500/20;
+    @apply badge bg-green-50 text-green-700 border border-green-200;
   }
 
   .badge-warning {
-    @apply badge bg-amber-500/15 text-amber-400 border border-amber-500/20;
+    @apply badge bg-orange-50 text-orange-700 border border-orange-200;
   }
 
   .badge-critical {
-    @apply badge bg-red-500/15 text-red-400 border border-red-500/20;
+    @apply badge bg-red-50 text-red-700 border border-red-200;
   }
 
   .badge-info {
-    @apply badge bg-blue-500/15 text-blue-400 border border-blue-500/20;
+    @apply badge bg-blue-50 text-blue-700 border border-blue-200;
   }
 
   .btn-primary {
-    @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors duration-150;
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0071E3] hover:bg-[#0077ED] text-white text-sm font-medium transition-colors duration-150 shadow-sm;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-navy-700 hover:bg-navy-600 text-gray-200 text-sm font-medium border border-navy-600 transition-colors duration-150;
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-gray-50 text-gray-700 text-sm font-medium border border-gray-200 transition-colors duration-150;
   }
 
   .input-field {
-    @apply w-full px-3 py-2 bg-navy-900 border border-navy-600 rounded-lg text-gray-200 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-colors;
+    @apply w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-colors;
   }
 }
 
-/* Recharts customization */
+/* Recharts customization for light theme */
 .recharts-cartesian-grid-horizontal line,
 .recharts-cartesian-grid-vertical line {
-  stroke: #28355d;
-  stroke-opacity: 0.5;
+  stroke: #E5E5EA;
+  stroke-opacity: 0.7;
 }
 
 .recharts-text {
-  fill: #94a3b8;
+  fill: #86868B;
   font-size: 12px;
 }
 
@@ -129,7 +129,7 @@
     opacity: 1;
   }
   50% {
-    opacity: 0.5;
+    opacity: 0.6;
   }
 }
 
@@ -137,19 +137,38 @@
   animation: pulse-critical 2s ease-in-out infinite;
 }
 
-/* Glow effects */
-.glow-blue {
-  box-shadow: 0 0 15px rgba(59, 130, 246, 0.15);
+/* Gentle glow for fault detection button after tour */
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(0, 113, 227, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(0, 113, 227, 0.15);
+  }
 }
 
-.glow-green {
-  box-shadow: 0 0 15px rgba(16, 185, 129, 0.15);
+.animate-glow-pulse {
+  animation: glow-pulse 2s ease-in-out 3;
 }
 
-.glow-amber {
-  box-shadow: 0 0 15px rgba(245, 158, 11, 0.15);
+/* Glass card effect */
+.glass-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(229, 229, 234, 0.6);
 }
 
-.glow-red {
-  box-shadow: 0 0 15px rgba(239, 68, 68, 0.15);
+/* Joyride tour overrides for light theme */
+.react-joyride__tooltip {
+  border-radius: 16px !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08) !important;
+}
+
+.react-joyride__beacon inner {
+  background-color: #0071E3 !important;
+}
+
+.react-joyride__beacon outer {
+  background-color: rgba(0, 113, 227, 0.2) !important;
 }

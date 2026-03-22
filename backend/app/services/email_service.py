@@ -15,12 +15,28 @@ logger = logging.getLogger(__name__)
 _last_email_sent: Dict[str, datetime] = {}
 _RATE_LIMIT_SECONDS = 3600  # 1 hour
 
+# Global toggle — can be flipped via the /api/dashboard/email-toggle endpoint
+_emails_enabled: bool = True
+
+
+def is_email_enabled() -> bool:
+    return _emails_enabled
+
+
+def set_email_enabled(enabled: bool) -> None:
+    global _emails_enabled
+    _emails_enabled = enabled
+
 
 def send_alert_email(alert, meter) -> bool:
     """Send an HTML alert email via Gmail SMTP.
 
     Returns True if email was sent, False otherwise.
     """
+    if not _emails_enabled:
+        logger.info("Email notifications paused — alert skipped (meter=%s)", meter.id)
+        return False
+
     if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
         logger.info("SMTP not configured — email alert skipped (meter=%s)", meter.id)
         return False

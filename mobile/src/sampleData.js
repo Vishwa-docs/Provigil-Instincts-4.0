@@ -1,6 +1,6 @@
 const now = '2026-03-15T11:30:00+05:30';
 
-export const demoMeters = [
+export const sampleMeters = [
   {
     id: 'MTR-001',
     name: 'Connaught Place Feeder 01',
@@ -9,6 +9,7 @@ export const demoMeters = [
     suspected_issue: 'healthy',
     location_lat: 28.6315,
     location_lng: 77.2167,
+    latest_reading: { voltage: 230.1, current: 4.2, power_factor: 0.95, temperature: 36.2, thd: 1.8, relay_chatter_ms: 3.5, battery_voltage: 3.18 },
   },
   {
     id: 'MTR-002',
@@ -18,6 +19,7 @@ export const demoMeters = [
     suspected_issue: 'voltage_imbalance',
     location_lat: 28.6519,
     location_lng: 77.1909,
+    latest_reading: { voltage: 215.3, current: 6.8, power_factor: 0.87, temperature: 42.1, thd: 4.2, relay_chatter_ms: 12.0, battery_voltage: 2.9 },
   },
   {
     id: 'MTR-003',
@@ -36,6 +38,7 @@ export const demoMeters = [
     suspected_issue: 'relay_instability',
     location_lat: 28.5921,
     location_lng: 77.046,
+    latest_reading: { voltage: 228.5, current: 18.3, power_factor: 0.78, temperature: 48.7, thd: 6.1, relay_chatter_ms: 185.0, battery_voltage: 3.05 },
   },
   {
     id: 'MTR-005',
@@ -72,6 +75,7 @@ export const demoMeters = [
     suspected_issue: 'loose_terminal_connection',
     location_lat: 28.6077,
     location_lng: 77.2943,
+    latest_reading: { voltage: 198.2, current: 9.1, power_factor: 0.72, temperature: 62.5, thd: 8.9, relay_chatter_ms: 95.0, battery_voltage: 2.4 },
   },
   {
     id: 'MTR-009',
@@ -93,7 +97,7 @@ export const demoMeters = [
   },
 ];
 
-export const demoStats = {
+export const sampleStats = {
   total_meters: 10,
   healthy: 5,
   warning: 2,
@@ -102,7 +106,7 @@ export const demoStats = {
   avg_health_score: 0.699,
 };
 
-export const demoAlerts = [
+export const sampleAlerts = [
   {
     id: 101,
     meter_id: 'MTR-008',
@@ -153,7 +157,7 @@ export const demoAlerts = [
   },
 ];
 
-export const demoWorkOrders = [
+export const sampleWorkOrders = [
   {
     id: 201,
     meter_id: 'MTR-008',
@@ -204,19 +208,19 @@ const defaultTwin = {
   },
 };
 
-export function getDemoTwin(meterId) {
+export function getSampleTwin(meterId) {
   return {
     meter_id: meterId,
     ...(twinComponentsByMeter[meterId] || defaultTwin),
   };
 }
 
-export function getDemoMeter(meterId) {
-  return demoMeters.find((meter) => meter.id === meterId) || demoMeters[0];
+export function getSampleMeter(meterId) {
+  return sampleMeters.find((meter) => meter.id === meterId) || sampleMeters[0];
 }
 
-export function getDemoSummary(meterId) {
-  const meter = getDemoMeter(meterId);
+export function getSampleSummary(meterId) {
+  const meter = getSampleMeter(meterId);
   if (meter.id === 'MTR-008') {
     return {
       summary:
@@ -237,7 +241,7 @@ export function getDemoSummary(meterId) {
   };
 }
 
-export const demoNetworkTopology = {
+export const sampleNetworkTopology = {
   feeders: [
     {
       id: 'FDR-DEL-01',

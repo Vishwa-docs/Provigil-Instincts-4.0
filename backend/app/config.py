@@ -26,7 +26,7 @@ class Settings(BaseSettings):
 
     # ── General ───────────────────────────────────────────────────────────
     APP_NAME: str = "Pro-Vigil"
-    SECRET_KEY: str = "change-me-in-production"
+    SECRET_KEY: str = ""
     LLM_PROVIDER: str = "azure"
 
     # ── Database ──────────────────────────────────────────────────────────
@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     MQTT_BROKER_PORT: int = 1883
     MQTT_TOPIC_PREFIX: str = "pro-vigil/meter"
 
-    # ── Scoring thresholds ────────────────────────────────────────────────
+    # ── Scoring configuration ─────────────────────────────────────────────
     ANOMALY_THRESHOLD_WARNING: float = 0.15
     ANOMALY_THRESHOLD_CRITICAL: float = 0.35
 

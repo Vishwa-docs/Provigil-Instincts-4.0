@@ -73,7 +73,7 @@ def _persist_reading(meter_id: str, payload: dict) -> None:
     """Write a telemetry payload to the database."""
     db = SessionLocal()
     try:
-        # Upsert meter stub if it doesn't exist
+        # Upsert meter record if it doesn't exist
         meter = db.query(Meter).filter(Meter.id == meter_id).first()
         if not meter:
             meter = Meter(id=meter_id, name=f"Meter-{meter_id}", status="healthy", health_score=1.0)

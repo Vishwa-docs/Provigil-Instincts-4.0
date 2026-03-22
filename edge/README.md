@@ -227,7 +227,7 @@ When `local_alert` is `true`, the payload includes an `alert_reason` string.
 
 ## Demo Setup Suggestions
 
-For a compelling hackathon / competition demo:
+For a compelling live walkthrough:
 
 1. **Clamp the CT sensor** around a lamp cord or extension cable with a variable load (desk lamp with dimmer, or plug in / unplug a heater).
 

@@ -33,6 +33,9 @@ class Meter(Base):
     name = Column(String(128), nullable=False)
     location_lat = Column(Float, nullable=True)
     location_lng = Column(Float, nullable=True)
+    ip_address = Column(String(64), nullable=True)
+    city = Column(String(128), nullable=True)
+    region = Column(String(128), nullable=True)
     install_date = Column(DateTime, nullable=True)
     status = Column(String(16), nullable=False, default="healthy")  # healthy / warning / critical
     health_score = Column(Float, nullable=False, default=1.0)       # 0.0 – 1.0
@@ -64,6 +67,12 @@ class Reading(Base):
     temperature = Column(Float, nullable=True)
     frequency = Column(Float, nullable=True)
     power_factor = Column(Float, nullable=True)
+    thd = Column(Float, nullable=True)                 # Total Harmonic Distortion %
+    relay_chatter_ms = Column(Float, nullable=True)    # Relay actuation noise duration ms
+    battery_voltage = Column(Float, nullable=True)     # RTC backup battery voltage
+    harmonic_distortion = Column(Float, nullable=True) # Harmonic damage accumulation index
+    firmware_heap_pct = Column(Float, nullable=True)   # RTOS heap usage %
+    voc_ppm = Column(Float, nullable=True)              # VOC gas sensor (ppm) — arcing / off-gas detection
     local_alert = Column(Boolean, nullable=False, default=False)
     raw_data = Column(Text, nullable=True)  # JSON-encoded string
     created_at = Column(DateTime, nullable=False, default=_utcnow)
@@ -166,3 +175,15 @@ class NetworkNode(Base):
     created_at = Column(DateTime, nullable=False, default=_utcnow)
 
     parent = relationship("NetworkNode", remote_side=[id], backref="children")
+
+
+# ── Subscriber ────────────────────────────────────────────────────────────────
+
+
+class Subscriber(Base):
+    __tablename__ = "subscribers"
+
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    email = Column(String(256), nullable=False, unique=True, index=True)
+    subscribed_at = Column(DateTime, nullable=False, default=_utcnow)
+    is_active = Column(Boolean, nullable=False, default=True)

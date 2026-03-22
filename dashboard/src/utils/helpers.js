@@ -20,19 +20,19 @@ export function getStatusColor(status) {
     case 'normal':
     case 'resolved':
     case 'completed':
-      return 'text-emerald-400';
+      return 'text-green-600';
     case 'warning':
     case 'degraded':
     case 'in_progress':
     case 'pending':
-      return 'text-amber-400';
+      return 'text-orange-500';
     case 'critical':
     case 'failure':
     case 'overdue':
-      return 'text-red-400';
+      return 'text-red-500';
     case 'info':
     case 'new':
-      return 'text-blue-400';
+      return 'text-blue-500';
     default:
       return 'text-gray-400';
   }
@@ -45,21 +45,21 @@ export function getStatusBgColor(status) {
     case 'normal':
     case 'resolved':
     case 'completed':
-      return 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20';
+      return 'bg-green-50 text-green-700 border-green-200';
     case 'warning':
     case 'degraded':
     case 'in_progress':
     case 'pending':
-      return 'bg-amber-500/15 text-amber-400 border-amber-500/20';
+      return 'bg-orange-50 text-orange-700 border-orange-200';
     case 'critical':
     case 'failure':
     case 'overdue':
-      return 'bg-red-500/15 text-red-400 border-red-500/20';
+      return 'bg-red-50 text-red-700 border-red-200';
     case 'info':
     case 'new':
-      return 'bg-blue-500/15 text-blue-400 border-blue-500/20';
+      return 'bg-blue-50 text-blue-700 border-blue-200';
     default:
-      return 'bg-gray-500/15 text-gray-400 border-gray-500/20';
+      return 'bg-gray-50 text-gray-600 border-gray-200';
   }
 }
 
@@ -67,15 +67,15 @@ export function getSeverityColor(severity) {
   const s = (severity || '').toLowerCase();
   switch (s) {
     case 'critical':
-      return 'text-red-400';
+      return 'text-red-600';
     case 'high':
-      return 'text-orange-400';
+      return 'text-orange-600';
     case 'medium':
     case 'warning':
-      return 'text-amber-400';
+      return 'text-orange-500';
     case 'low':
     case 'info':
-      return 'text-blue-400';
+      return 'text-blue-500';
     default:
       return 'text-gray-400';
   }
@@ -85,17 +85,17 @@ export function getSeverityBgColor(severity) {
   const s = (severity || '').toLowerCase();
   switch (s) {
     case 'critical':
-      return 'bg-red-500/15 text-red-400 border border-red-500/20';
+      return 'bg-red-50 text-red-700 border border-red-200';
     case 'high':
-      return 'bg-orange-500/15 text-orange-400 border border-orange-500/20';
+      return 'bg-orange-50 text-orange-700 border border-orange-200';
     case 'medium':
     case 'warning':
-      return 'bg-amber-500/15 text-amber-400 border border-amber-500/20';
+      return 'bg-orange-50 text-orange-600 border border-orange-200';
     case 'low':
     case 'info':
-      return 'bg-blue-500/15 text-blue-400 border border-blue-500/20';
+      return 'bg-blue-50 text-blue-700 border border-blue-200';
     default:
-      return 'bg-gray-500/15 text-gray-400 border border-gray-500/20';
+      return 'bg-gray-50 text-gray-600 border border-gray-200';
   }
 }
 
@@ -123,18 +123,18 @@ export function getHealthScoreLabel(score) {
 
 export function getHealthScoreColor(score) {
   if (score === null || score === undefined) return 'text-gray-400';
-  if (score >= 85) return 'text-emerald-400';
-  if (score >= 70) return 'text-blue-400';
-  if (score >= 50) return 'text-amber-400';
-  return 'text-red-400';
+  if (score >= 85) return 'text-green-600';
+  if (score >= 70) return 'text-blue-600';
+  if (score >= 50) return 'text-orange-500';
+  return 'text-red-500';
 }
 
 export function getHealthScoreBg(score) {
-  if (score === null || score === undefined) return 'bg-gray-500/15';
-  if (score >= 85) return 'bg-emerald-500/15';
-  if (score >= 70) return 'bg-blue-500/15';
-  if (score >= 50) return 'bg-amber-500/15';
-  return 'bg-red-500/15';
+  if (score === null || score === undefined) return 'bg-gray-50';
+  if (score >= 85) return 'bg-green-50';
+  if (score >= 70) return 'bg-blue-50';
+  if (score >= 50) return 'bg-orange-50';
+  return 'bg-red-50';
 }
 
 export function classNames(...classes) {
@@ -144,4 +144,14 @@ export function classNames(...classes) {
 export function truncate(str, length = 30) {
   if (!str) return '';
   return str.length > length ? str.slice(0, length) + '...' : str;
+}
+
+export function formatIssueLabel(label) {
+  if (!label) return '—';
+  // If already contains spaces or em-dash, it's a clean label from backend
+  if (label.includes(' ') || label.includes('—')) return label;
+  // Legacy snake_case fallback: convert to title case
+  return label
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }

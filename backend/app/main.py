@@ -29,12 +29,12 @@ async def lifespan(app: FastAPI):
     logger.info("Initialising database …")
     init_db()
 
-    # Seed demo data
+    # Seed initial fleet data
     try:
-        from app.seed_demo import seed_demo_data
-        seed_demo_data()
+        from app.seed_demo import seed_initial_data
+        seed_initial_data()
     except Exception:
-        logger.exception("Demo seeder failed – continuing.")
+        logger.exception("Fleet data seeder failed – continuing.")
 
     # MQTT service
     try:

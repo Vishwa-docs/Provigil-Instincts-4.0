@@ -25,6 +25,7 @@ OBIS_TO_INTERNAL: Dict[str, str] = {
     "0-0:1.0.0":  "timestamp",       # Clock / date-time
     "0-0:96.1.0": "meter_serial",    # Meter serial number
     "1-0:31.4.0": "temperature",     # Internal temperature (some meters)
+    "1-0:124.7.0": "thd",            # Total Harmonic Distortion %
 }
 
 # ── Reverse mapping (internal → OBIS) ────────────────────────────────────────
