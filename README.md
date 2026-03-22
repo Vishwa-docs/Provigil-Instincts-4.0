@@ -2,6 +2,14 @@
 
 ProVigil is an end-to-end platform that detects failing smart electricity meters *before* they cause outages. It combines edge intelligence (ESP32 TinyML), multi-model anomaly detection, a real-time scoring engine (FastAPI), a React operations dashboard, and a field mobile app with VLM-based visual validation — all aligned to India's DLMS/COSEM and IS 15959 smart-meter standards.
 
+🔗 **Live Demo:** [https://provigilinstincts.click](https://provigilinstincts.click)
+
+### Field Vision — VLM Loose Wire Inspector (Mobile App)
+
+https://github.com/user-attachments/assets/vlm_demo.mp4
+
+<video src="docs/vlm_demo.mp4" width="300" controls autoplay muted></video>
+
 ---
 
 ## Key Features

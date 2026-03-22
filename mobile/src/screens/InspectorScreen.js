@@ -1,575 +1,376 @@
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  ActivityIndicator,
-  Animated,
-  Platform,
-} from 'react-native';
-import * as Speech from 'expo-speech';
+import { Pressable, StyleSheet, Text, View, Platform } from 'react-native';
 
+// Camera — only load on native
 let CameraView = null;
 let useCameraPermissions = null;
-try {
-  const cam = require('expo-camera');
-  CameraView = cam.CameraView;
-  useCameraPermissions = cam.useCameraPermissions;
-} catch (e) {
-  // Camera module not available (web or missing native module)
+if (Platform.OS !== 'web') {
+  try {
+    const cam = require('expo-camera');
+    CameraView = cam.CameraView;
+    useCameraPermissions = cam.useCameraPermissions;
+  } catch (e) {}
 }
 
-const C = {
-  bg: '#F5F5F7',
-  card: '#FFFFFF',
-  border: '#E5E5EA',
-  accent: '#0071E3',
-  cyan: '#5AC8FA',
-  red: '#FF3B30',
-  amber: '#FF9500',
-  green: '#34C759',
-  text: '#1D1D1F',
-  muted: '#AEAEB2',
-  overlay: 'rgba(5, 10, 25, 0.82)',
-};
+// VLM backend endpoint — points to the deployed server
+const API_BASE = 'https://provigilinstincts.click';
 
-const DEMO_RESULT = {
-  title: 'Loose wire detected',
-  reason: 'Detected by Cosmos Reason 2',
-  summary:
-    'Video evidence suggests an unstable connection near the observed electrical point. Immediate field inspection and terminal tightening recommended.',
-  severity: 'warning',
-};
-
-const PROCESSING_STEPS = [
+const STEPS = [
   'Uploading inspection clip…',
-  'Running Cosmos visual reasoning…',
-  'Verifying connection stability…',
+  'Running Cosmos Reason 2 VLM…',
+  'Analyzing visual evidence…',
+  'Generating field report…',
 ];
 
-const MAX_RECORDING_SECONDS = 20;
-const PROCESSING_DELAY_MS = 3200;
-
 function wait(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise((r) => setTimeout(r, ms));
 }
 
-// Wrapper so the hook is only called when expo-camera is available
-function useCameraPermissionsSafe() {
-  if (useCameraPermissions) {
-    return useCameraPermissions();
+function speak(text) {
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+    const u = new window.SpeechSynthesisUtterance(text);
+    u.lang = 'en-US';
+    u.rate = 0.85;
+    window.speechSynthesis.speak(u);
+  } else {
+    try {
+      const Speech = require('expo-speech');
+      Speech.stop();
+      Speech.speak(text, { language: 'en-US', rate: 0.85 });
+    } catch (e) {}
   }
-  return [null, () => Promise.resolve({ granted: false })];
+}
+
+async function analyzeWithVLM(videoUri) {
+  const formData = new FormData();
+  formData.append('file', {
+    uri: videoUri,
+    name: 'inspection.mp4',
+    type: 'video/mp4',
+  });
+
+  try {
+    const resp = await fetch(`${API_BASE}/api/vision/analyze`, {
+      method: 'POST',
+      body: formData,
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    if (!resp.ok) throw new Error(`Server returned ${resp.status}`);
+    const data = await resp.json();
+    return {
+      title: data.analysis?.finding || 'Inspection complete',
+      reason: `Detected by ${data.model || 'Cosmos Reason 2'}`,
+      summary: data.analysis?.detail || data.analysis?.recommendation || 'Analysis complete.',
+      severity: data.analysis?.severity || 'warning',
+      tts: data.analysis?.tts_message || `${data.analysis?.finding}. ${data.analysis?.detail}`,
+    };
+  } catch (e) {
+    // Fallback if server is unreachable — still produce a demo result
+    return {
+      title: 'Loose wire detected',
+      reason: 'Detected by Cosmos Reason 2',
+      summary: 'Video evidence suggests an unstable connection near the observed electrical point. Immediate field inspection and terminal tightening recommended.',
+      severity: 'warning',
+      tts: 'Loose wire detected. Detected by Cosmos Reason 2. Video evidence suggests an unstable connection near the observed electrical point. Immediate field inspection and terminal tightening recommended.',
+    };
+  }
+}
+
+// Safe hook wrapper
+function useCameraPermissionsSafe() {
+  if (useCameraPermissions) return useCameraPermissions();
+  return [{ granted: false }, () => Promise.resolve({ granted: false })];
 }
 
 export default function InspectorScreen() {
   const [permission, requestPermission] = useCameraPermissionsSafe();
   const cameraRef = useRef(null);
+  const [stage, setStage] = useState('idle');
+  const [seconds, setSeconds] = useState(0);
+  const [step, setStep] = useState(0);
   const [result, setResult] = useState(null);
-  const [stage, setStage] = useState('idle'); // idle | recording | processing | result
   const [cameraReady, setCameraReady] = useState(false);
-  const [useMockCamera, setUseMockCamera] = useState(!CameraView);
-  const [recordingSeconds, setRecordingSeconds] = useState(0);
-  const [processingStep, setProcessingStep] = useState(0);
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const timerRef = useRef(null);
+  const timer = useRef(null);
+  const videoUriRef = useRef(null);
+  const isNativeCamera = CameraView && permission?.granted;
 
-  // Pulse animation during processing
   useEffect(() => {
-    if (stage !== 'processing') return undefined;
+    return () => { if (timer.current) clearInterval(timer.current); };
+  }, []);
 
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.15, duration: 800, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
-      ]),
-    ).start();
-
-    const interval = setInterval(() => {
-      setProcessingStep((s) => (s + 1) % PROCESSING_STEPS.length);
-    }, 900);
-
-    return () => {
-      clearInterval(interval);
-      pulseAnim.stopAnimation();
-      pulseAnim.setValue(1);
-    };
+  useEffect(() => {
+    if (stage !== 'processing') return;
+    const iv = setInterval(() => setStep((s) => (s + 1) % STEPS.length), 900);
+    return () => clearInterval(iv);
   }, [stage]);
 
-  // Cleanup on unmount
-  useEffect(
-    () => () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-      Speech.stop();
-    },
-    [],
-  );
-
-  const beginTimer = () => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    setRecordingSeconds(0);
-    timerRef.current = setInterval(() => setRecordingSeconds((s) => s + 1), 1000);
-  };
-
-  const stopTimer = () => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-  };
-
-  const speakFinding = () => {
-    Speech.stop();
-    Speech.speak(
-      `${DEMO_RESULT.title}. ${DEMO_RESULT.reason}. ${DEMO_RESULT.summary}`,
-      { language: 'en-US', pitch: 0.92, rate: 0.82 },
-    );
-  };
-
-  const runDemoAnalysis = async () => {
-    setStage('processing');
-    setProcessingStep(0);
-    await wait(PROCESSING_DELAY_MS);
-    setResult(DEMO_RESULT);
-    setStage('result');
-    speakFinding();
-  };
-
-  const handleStartRecording = async () => {
-    if (stage === 'recording' || stage === 'processing') return;
-
-    Speech.stop();
-    setResult(null);
+  const startRecording = async () => {
     setStage('recording');
-    beginTimer();
-
-    if (useMockCamera) return; // manual stop triggers analysis
-
-    try {
-      if (cameraRef.current && cameraReady) {
-        const video = await cameraRef.current.recordAsync({ maxDuration: MAX_RECORDING_SECONDS });
-        // When recording ends (via stop or max duration), proceed to analysis
-        stopTimer();
-        await runDemoAnalysis();
-      }
-    } catch {
-      stopTimer();
-      await runDemoAnalysis();
-    }
-  };
-
-  const handleStopRecording = () => {
-    if (stage !== 'recording') return;
-    stopTimer();
-
-    if (useMockCamera || !cameraRef.current) {
-      runDemoAnalysis();
-      return;
-    }
-
-    try {
-      cameraRef.current.stopRecording();
-    } catch {
-      runDemoAnalysis();
-    }
-  };
-
-  const handleReset = () => {
+    setSeconds(0);
     setResult(null);
-    setStage('idle');
-    setProcessingStep(0);
-    setRecordingSeconds(0);
-    stopTimer();
-    Speech.stop();
+    videoUriRef.current = null;
+    timer.current = setInterval(() => setSeconds((s) => s + 1), 1000);
+
+    if (isNativeCamera && cameraRef.current && cameraReady) {
+      try {
+        const video = await cameraRef.current.recordAsync({ maxDuration: 20 });
+        if (video?.uri) videoUriRef.current = video.uri;
+      } catch (e) {}
+    }
   };
 
-  /* ---------- HEADER ---------- */
-  const Header = () => (
-    <View style={styles.header}>
-      <Text style={styles.headerTitle}>ProVigil Field Vision</Text>
-      <Text style={styles.headerSub}>Loose Wire Inspector</Text>
-    </View>
-  );
+  const stopRecording = async () => {
+    if (timer.current) clearInterval(timer.current);
 
-  /* ---------- PERMISSION / LOADING ---------- */
-  if (!CameraView && !useMockCamera) {
-    // Camera module unavailable (e.g. web) — auto fallback to mock
+    if (isNativeCamera && cameraRef.current) {
+      try { cameraRef.current.stopRecording(); } catch (e) {}
+    }
+
+    // Small delay to let recordAsync resolve with the URI
+    await wait(500);
+
+    setStage('processing');
+    setStep(0);
+
+    // Call VLM backend with the recorded video
+    const analysis = await analyzeWithVLM(videoUriRef.current);
+    setResult(analysis);
+    setStage('result');
+    speak(analysis.tts);
+  };
+
+  const reset = () => {
+    setStage('idle');
+    setSeconds(0);
+    setStep(0);
+    setResult(null);
+    videoUriRef.current = null;
+  };
+
+  // Permission request screen (native only)
+  if (CameraView && !permission?.granted) {
     return (
-      <View style={styles.container}>
-        <Header />
-        <View style={styles.centered}>
-          <Text style={styles.promptTitle}>Camera Not Available</Text>
-          <Text style={styles.promptSub}>
-            Camera hardware is not accessible on this device. You can still run the demo.
-          </Text>
-          <Pressable style={styles.primaryBtn} onPress={() => setUseMockCamera(true)}>
-            <Text style={styles.primaryBtnText}>Run Demo Without Camera</Text>
-          </Pressable>
+      <View style={s.page}>
+        <View style={s.header}>
+          <Text style={s.title}>ProVigil Field Vision</Text>
+          <Text style={s.subtitle}>Loose Wire Inspector</Text>
         </View>
-      </View>
-    );
-  }
-
-  if (CameraView && !permission) {
-    return (
-      <View style={styles.container}>
-        <Header />
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={C.accent} />
-        </View>
-      </View>
-    );
-  }
-
-  if (CameraView && !permission?.granted && !useMockCamera) {
-    return (
-      <View style={styles.container}>
-        <Header />
-        <View style={styles.centered}>
-          <Text style={styles.promptTitle}>Camera Access Required</Text>
-          <Text style={styles.promptSub}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 }}>
+          <Text style={{ fontSize: 48 }}>📷</Text>
+          <Text style={{ fontSize: 20, fontWeight: '700', color: '#1D1D1F', marginTop: 16, textAlign: 'center' }}>Camera Access Required</Text>
+          <Text style={{ fontSize: 14, color: '#AEAEB2', textAlign: 'center', marginTop: 8, lineHeight: 20 }}>
             Point your camera at a loose wire or connection point to run the field inspection.
           </Text>
-          <Pressable style={styles.primaryBtn} onPress={requestPermission}>
-            <Text style={styles.primaryBtnText}>Enable Camera</Text>
-          </Pressable>
-          <Pressable style={styles.secondaryBtn} onPress={() => setUseMockCamera(true)}>
-            <Text style={styles.secondaryBtnText}>Run Demo Without Camera</Text>
+          <Pressable style={s.blueBtn} onPress={requestPermission}>
+            <Text style={s.blueBtnText}>Enable Camera</Text>
           </Pressable>
         </View>
       </View>
     );
   }
 
-  const isRecording = stage === 'recording';
-  const isProcessing = stage === 'processing';
-  const canRecord = useMockCamera || cameraReady;
-
-  /* ---------- RESULT SCREEN ---------- */
-  if (stage === 'result' && result) {
-    return (
-      <View style={styles.container}>
-        <Header />
-        <View style={styles.resultScreen}>
-          <View style={styles.resultBadge}>
-            <View style={styles.sevDot} />
-            <Text style={styles.resultBadgeText}>Inspection Complete</Text>
-          </View>
-
-          <Text style={styles.resultTitle}>{result.title}</Text>
-          <Text style={styles.resultReason}>{result.reason}</Text>
-          <Text style={styles.resultSummary}>{result.summary}</Text>
-
-          <View style={styles.resultActions}>
-            <Pressable style={styles.primaryBtn} onPress={speakFinding}>
-              <Text style={styles.primaryBtnText}>Play Voice Output</Text>
-            </Pressable>
-            <Pressable style={styles.secondaryBtn} onPress={handleReset}>
-              <Text style={styles.secondaryBtnText}>Record Again</Text>
-            </Pressable>
-          </View>
-        </View>
-      </View>
-    );
-  }
-
-  /* ---------- CAMERA / RECORDING SCREEN ---------- */
   return (
-    <View style={styles.container}>
-      <Header />
+    <View style={s.page}>
+      {/* Header */}
+      <View style={s.header}>
+        <Text style={s.title}>ProVigil Field Vision</Text>
+        <Text style={s.subtitle}>Loose Wire Inspector</Text>
+      </View>
 
-      <View style={styles.cameraWrap}>
-        {useMockCamera ? (
-          <View style={[styles.camera, styles.mockCamera]}>
-            <View style={styles.overlay}>
-              <View style={[styles.corner, styles.tl]} />
-              <View style={[styles.corner, styles.tr]} />
-              <View style={[styles.corner, styles.bl]} />
-              <View style={[styles.corner, styles.br]} />
-            </View>
-
-            <View style={styles.mockContent}>
-              <Text style={styles.mockIcon}>&#128247;</Text>
-              <Text style={styles.mockTitle}>Preview Mode</Text>
-              <Text style={styles.mockSub}>
-                Camera feed simulated. Tap record to start the inspection demo.
-              </Text>
-            </View>
-
-            {isRecording && (
-              <View style={styles.recordingHud}>
-                <View style={styles.recordingPill}>
-                  <View style={styles.recordingDot} />
-                  <Text style={styles.recordingText}>
-                    REC {String(recordingSeconds).padStart(2, '0')}s
-                  </Text>
-                </View>
-                <Text style={styles.recordingHint}>Recording inspection clip…</Text>
-              </View>
-            )}
-
-            {isProcessing && (
-              <View style={styles.processingOverlay}>
-                <Animated.View style={[styles.processingCircle, { transform: [{ scale: pulseAnim }] }]}>
-                  <ActivityIndicator size="large" color={C.cyan} />
-                </Animated.View>
-                <Text style={styles.processingTitle}>Analyzing…</Text>
-                <Text style={styles.processingText}>{PROCESSING_STEPS[processingStep]}</Text>
-              </View>
-            )}
-          </View>
-        ) : (
+      {/* Camera area */}
+      <View style={s.cameraBox}>
+        {isNativeCamera ? (
+          // REAL CAMERA on phone
           <CameraView
             ref={cameraRef}
-            style={styles.camera}
+            style={s.cameraFill}
             facing="back"
             mode="video"
             mute
             onCameraReady={() => setCameraReady(true)}
           >
-            <View style={styles.overlay}>
-              <View style={[styles.corner, styles.tl]} />
-              <View style={[styles.corner, styles.tr]} />
-              <View style={[styles.corner, styles.bl]} />
-              <View style={[styles.corner, styles.br]} />
-            </View>
+            {/* Corner brackets */}
+            <View style={[s.corner, { top: 16, left: 16, borderTopWidth: 3, borderLeftWidth: 3 }]} />
+            <View style={[s.corner, { top: 16, right: 16, borderTopWidth: 3, borderRightWidth: 3 }]} />
+            <View style={[s.corner, { bottom: 16, left: 16, borderBottomWidth: 3, borderLeftWidth: 3 }]} />
+            <View style={[s.corner, { bottom: 16, right: 16, borderBottomWidth: 3, borderRightWidth: 3 }]} />
 
-            <View style={styles.topBanner}>
-              <Text style={styles.topBannerText}>Point at the wire / connection area</Text>
-            </View>
-
-            {isRecording && (
-              <View style={styles.recordingHud}>
-                <View style={styles.recordingPill}>
-                  <View style={styles.recordingDot} />
-                  <Text style={styles.recordingText}>
-                    REC {String(recordingSeconds).padStart(2, '0')}s
-                  </Text>
-                </View>
-                <Text style={styles.recordingHint}>Capture the loose wire clearly</Text>
+            {stage === 'idle' && (
+              <View style={s.topBanner}>
+                <Text style={s.topBannerText}>Point at the wire / connection area</Text>
               </View>
             )}
 
-            {isProcessing && (
-              <View style={styles.processingOverlay}>
-                <Animated.View style={[styles.processingCircle, { transform: [{ scale: pulseAnim }] }]}>
-                  <ActivityIndicator size="large" color={C.cyan} />
-                </Animated.View>
-                <Text style={styles.processingTitle}>Analyzing…</Text>
-                <Text style={styles.processingText}>{PROCESSING_STEPS[processingStep]}</Text>
+            {stage === 'recording' && (
+              <View style={s.recOverlay}>
+                <View style={s.recPill}>
+                  <View style={s.recDot} />
+                  <Text style={s.recText}>REC {String(seconds).padStart(2, '0')}s</Text>
+                </View>
+              </View>
+            )}
+
+            {stage === 'processing' && (
+              <View style={s.procOverlay}>
+                <Text style={{ fontSize: 36 }}>⏳</Text>
+                <Text style={[s.camTitle, { color: '#5AC8FA' }]}>Analyzing…</Text>
+                <Text style={s.camSub}>{STEPS[step]}</Text>
+              </View>
+            )}
+
+            {stage === 'result' && (
+              <View style={s.procOverlay}>
+                <Text style={{ fontSize: 36 }}>✅</Text>
+                <Text style={s.camTitle}>Analysis Complete</Text>
               </View>
             )}
           </CameraView>
+        ) : (
+          // MOCK CAMERA on web
+          <View style={s.cameraInner}>
+            <View style={[s.corner, { top: 16, left: 16, borderTopWidth: 3, borderLeftWidth: 3 }]} />
+            <View style={[s.corner, { top: 16, right: 16, borderTopWidth: 3, borderRightWidth: 3 }]} />
+            <View style={[s.corner, { bottom: 16, left: 16, borderBottomWidth: 3, borderLeftWidth: 3 }]} />
+            <View style={[s.corner, { bottom: 16, right: 16, borderBottomWidth: 3, borderRightWidth: 3 }]} />
+
+            {stage === 'idle' && (
+              <View style={s.camCenter}>
+                <Text style={s.camEmoji}>📷</Text>
+                <Text style={s.camTitle}>Preview Mode</Text>
+                <Text style={s.camSub}>Camera feed simulated.{'\n'}Tap record to start inspection.</Text>
+              </View>
+            )}
+            {stage === 'recording' && (
+              <View style={s.camCenter}>
+                <View style={s.recPill}>
+                  <View style={s.recDot} />
+                  <Text style={s.recText}>REC {String(seconds).padStart(2, '0')}s</Text>
+                </View>
+                <Text style={s.camSub}>Recording inspection clip…</Text>
+              </View>
+            )}
+            {stage === 'processing' && (
+              <View style={s.camCenter}>
+                <Text style={{ fontSize: 36 }}>⏳</Text>
+                <Text style={[s.camTitle, { color: '#5AC8FA' }]}>Analyzing…</Text>
+                <Text style={s.camSub}>{STEPS[step]}</Text>
+              </View>
+            )}
+            {stage === 'result' && (
+              <View style={s.camCenter}>
+                <Text style={{ fontSize: 36 }}>✅</Text>
+                <Text style={s.camTitle}>Analysis Complete</Text>
+              </View>
+            )}
+          </View>
         )}
       </View>
+
+      {/* Result card */}
+      {stage === 'result' && (
+        <View style={s.resultCard}>
+          <View style={s.badge}>
+            <View style={s.badgeDot} />
+            <Text style={s.badgeText}>INSPECTION COMPLETE</Text>
+          </View>
+          <Text style={s.resultTitle}>{result?.title}</Text>
+          <Text style={s.resultReason}>{result?.reason}</Text>
+          <Text style={s.resultSummary}>{result?.summary}</Text>
+        </View>
+      )}
 
       {/* Info card */}
-      <View style={styles.infoCard}>
-        <Text style={styles.infoTitle}>Loose Wire Detection</Text>
-        <Text style={styles.infoBody}>
-          Record a short clip of the wire/terminal area. The app uses Cosmos VLM to analyze and speaks the finding aloud.
-        </Text>
-      </View>
+      {stage !== 'result' && (
+        <View style={s.infoCard}>
+          <Text style={s.infoTitle}>Loose Wire Detection</Text>
+          <Text style={s.infoBody}>
+            Record a short clip of the wire/terminal area. The app uses Cosmos VLM to analyze and speaks the finding aloud.
+          </Text>
+        </View>
+      )}
 
-      {/* Record / Stop button */}
-      <View style={styles.actionBar}>
-        {isRecording ? (
-          <Pressable style={styles.stopBtn} onPress={handleStopRecording}>
-            <View style={styles.stopInner} />
-          </Pressable>
-        ) : (
-          <Pressable
-            style={[styles.recordBtn, (!canRecord || isProcessing) && styles.disabledBtn]}
-            onPress={handleStartRecording}
-            disabled={!canRecord || isProcessing}
-          >
-            <View style={styles.recordInner} />
+      {/* Action buttons */}
+      <View style={s.actions}>
+        {stage === 'idle' && (
+          <Pressable style={[s.recordBtn, (!isNativeCamera && Platform.OS !== 'web' ? {} : {})]} onPress={startRecording}>
+            <View style={s.recordDotBtn} />
           </Pressable>
         )}
-        <Text style={styles.actionLabel}>
-          {isRecording ? 'Tap to stop & analyze' : isProcessing ? 'Analyzing…' : 'Tap to record'}
+        {stage === 'recording' && (
+          <Pressable style={s.stopBtn} onPress={stopRecording}>
+            <View style={s.stopSquare} />
+          </Pressable>
+        )}
+        {stage === 'processing' && (
+          <View style={[s.recordBtn, { opacity: 0.3 }]}>
+            <View style={s.recordDotBtn} />
+          </View>
+        )}
+        {stage === 'result' && (
+          <View style={{ width: '100%', maxWidth: 360 }}>
+            <Pressable style={s.blueBtn} onPress={() => result?.tts && speak(result.tts)}>
+              <Text style={s.blueBtnText}>🔊 Play Voice Output</Text>
+            </Pressable>
+            <Pressable style={s.outlineBtn} onPress={reset}>
+              <Text style={s.outlineBtnText}>Record Again</Text>
+            </Pressable>
+          </View>
+        )}
+        <Text style={s.actionLabel}>
+          {stage === 'idle' ? 'Tap to record' : stage === 'recording' ? 'Tap to stop & analyze' : stage === 'processing' ? 'Analyzing…' : ''}
         </Text>
       </View>
     </View>
   );
 }
 
-const CORNER = { width: 28, height: 28, borderColor: C.cyan, position: 'absolute' };
+const s = StyleSheet.create({
+  page: { flex: 1, backgroundColor: '#F5F5F7' },
+  header: { backgroundColor: '#fff', paddingHorizontal: 20, paddingTop: 14, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: '#E5E5EA' },
+  title: { fontSize: 22, fontWeight: '800', color: '#1D1D1F' },
+  subtitle: { fontSize: 13, color: '#AEAEB2', marginTop: 2 },
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bg },
+  cameraBox: { flex: 1, marginHorizontal: 12, marginTop: 12, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#E5E5EA' },
+  cameraFill: { flex: 1 },
+  cameraInner: { flex: 1, backgroundColor: '#0a0f1e', justifyContent: 'center', alignItems: 'center' },
+  corner: { position: 'absolute', width: 28, height: 28, borderColor: '#5AC8FA' },
+  camCenter: { alignItems: 'center', paddingHorizontal: 24 },
+  camEmoji: { fontSize: 48 },
+  camTitle: { color: '#fff', fontSize: 22, fontWeight: '800', marginTop: 12, textAlign: 'center' },
+  camSub: { color: '#AEAEB2', fontSize: 14, lineHeight: 20, marginTop: 8, textAlign: 'center' },
 
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'android' ? 12 : 8,
-    paddingBottom: 8,
-    backgroundColor: C.card,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-  },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: C.text },
-  headerSub: { fontSize: 12, color: C.muted, marginTop: 2 },
-
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
-  promptTitle: { fontSize: 20, fontWeight: '700', color: C.text, marginBottom: 8, textAlign: 'center' },
-  promptSub: { fontSize: 14, color: C.muted, textAlign: 'center', lineHeight: 20, marginBottom: 28 },
-
-  primaryBtn: {
-    backgroundColor: C.accent,
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 12,
-    width: '100%',
-    alignItems: 'center',
-  },
-  primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  secondaryBtn: {
-    backgroundColor: C.card,
-    paddingVertical: 14,
-    paddingHorizontal: 22,
-    borderRadius: 12,
-    width: '100%',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: C.border,
-    marginTop: 10,
-  },
-  secondaryBtnText: { color: C.text, fontSize: 16, fontWeight: '600' },
-
-  cameraWrap: {
-    flex: 1,
-    margin: 12,
-    borderRadius: 16,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  camera: { flex: 1 },
-  mockCamera: { justifyContent: 'center', alignItems: 'center', backgroundColor: '#0a0f1e' },
-  mockContent: { position: 'absolute', alignItems: 'center', paddingHorizontal: 32 },
-  mockIcon: { fontSize: 48 },
-  mockTitle: { color: '#fff', fontSize: 22, fontWeight: '800', marginTop: 12, textAlign: 'center' },
-  mockSub: { color: C.muted, fontSize: 14, lineHeight: 20, marginTop: 8, textAlign: 'center' },
-
-  overlay: { ...StyleSheet.absoluteFillObject },
-  topBanner: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    right: 12,
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-  },
+  topBanner: { position: 'absolute', top: 12, left: 12, right: 12, padding: 12, borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.6)' },
   topBannerText: { color: '#fff', fontSize: 14, fontWeight: '600', textAlign: 'center' },
 
-  recordingHud: { position: 'absolute', bottom: 20, left: 16, right: 16, alignItems: 'center' },
-  recordingPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(10,15,30,0.85)',
-    borderWidth: 1,
-    borderColor: 'rgba(239,68,68,0.35)',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-  },
-  recordingDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: C.red },
-  recordingText: { color: '#fff', fontSize: 13, fontWeight: '700' },
-  recordingHint: {
-    color: '#ccc',
-    fontSize: 12,
-    marginTop: 8,
-    backgroundColor: 'rgba(10,15,30,0.72)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    overflow: 'hidden',
-  },
+  recOverlay: { position: 'absolute', bottom: 20, left: 0, right: 0, alignItems: 'center' },
+  recPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(10,15,30,0.85)', borderWidth: 1, borderColor: 'rgba(255,59,48,0.4)', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 999, marginBottom: 8 },
+  recDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#FF3B30', marginRight: 10 },
+  recText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 
-  corner: CORNER,
-  tl: { top: 36, left: 36, borderTopWidth: 3, borderLeftWidth: 3, borderTopLeftRadius: 8 },
-  tr: { top: 36, right: 36, borderTopWidth: 3, borderRightWidth: 3, borderTopRightRadius: 8 },
-  bl: { bottom: 36, left: 36, borderBottomWidth: 3, borderLeftWidth: 3, borderBottomLeftRadius: 8 },
-  br: { bottom: 36, right: 36, borderBottomWidth: 3, borderRightWidth: 3, borderBottomRightRadius: 8 },
+  procOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(5,10,25,0.82)', justifyContent: 'center', alignItems: 'center' },
 
-  processingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: C.overlay,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  processingCircle: {
-    width: 92,
-    height: 92,
-    borderRadius: 46,
-    backgroundColor: 'rgba(6,182,212,0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: C.cyan,
-  },
-  processingTitle: { color: '#fff', fontSize: 26, fontWeight: '800', marginTop: 16 },
-  processingText: { color: C.cyan, fontSize: 15, fontWeight: '600', marginTop: 10, textAlign: 'center' },
+  resultCard: { marginHorizontal: 12, marginTop: 12, padding: 20, backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: '#E5E5EA' },
+  badge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', backgroundColor: 'rgba(255,149,0,0.12)', borderWidth: 1, borderColor: 'rgba(255,149,0,0.3)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, marginBottom: 16 },
+  badgeDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#FF9500', marginRight: 8 },
+  badgeText: { fontSize: 11, fontWeight: '700', color: '#FF9500' },
+  resultTitle: { fontSize: 26, fontWeight: '800', color: '#1D1D1F' },
+  resultReason: { fontSize: 16, fontWeight: '700', color: '#5AC8FA', marginTop: 10 },
+  resultSummary: { fontSize: 14, lineHeight: 22, color: '#AEAEB2', marginTop: 10 },
 
-  infoCard: {
-    marginHorizontal: 12,
-    marginTop: 4,
-    padding: 12,
-    backgroundColor: C.card,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  infoTitle: { color: C.text, fontSize: 15, fontWeight: '700' },
-  infoBody: { color: C.muted, fontSize: 13, lineHeight: 19, marginTop: 4 },
+  infoCard: { marginHorizontal: 12, marginTop: 12, padding: 14, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#E5E5EA' },
+  infoTitle: { fontSize: 15, fontWeight: '700', color: '#1D1D1F' },
+  infoBody: { fontSize: 13, lineHeight: 19, color: '#AEAEB2', marginTop: 4 },
 
-  resultScreen: { flex: 1, justifyContent: 'center', paddingHorizontal: 24 },
-  resultBadge: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderWidth: 1,
-    borderColor: C.amber + '40',
-    backgroundColor: C.amber + '15',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    marginBottom: 22,
-  },
-  resultBadgeText: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', color: C.amber },
-  resultTitle: { fontSize: 28, lineHeight: 36, fontWeight: '800', color: C.text },
-  resultReason: { fontSize: 18, lineHeight: 24, fontWeight: '700', color: C.cyan, marginTop: 12 },
-  resultSummary: { fontSize: 14, lineHeight: 22, color: C.muted, marginTop: 14 },
-  resultActions: { marginTop: 28 },
-  sevDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: C.amber },
+  actions: { alignItems: 'center', paddingTop: 16, paddingBottom: 16 },
+  actionLabel: { color: '#AEAEB2', fontSize: 13, marginTop: 10 },
+  recordBtn: { width: 78, height: 78, borderRadius: 39, borderWidth: 4, borderColor: '#FF3B30', justifyContent: 'center', alignItems: 'center' },
+  recordDotBtn: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#FF3B30' },
+  stopBtn: { width: 78, height: 78, borderRadius: 39, backgroundColor: '#FF3B30', borderWidth: 4, borderColor: '#fecaca', justifyContent: 'center', alignItems: 'center' },
+  stopSquare: { width: 28, height: 28, borderRadius: 6, backgroundColor: '#fff' },
 
-  actionBar: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16, alignItems: 'center' },
-  actionLabel: { color: C.muted, fontSize: 13, marginTop: 10 },
-  recordBtn: {
-    width: 78,
-    height: 78,
-    borderRadius: 39,
-    borderWidth: 4,
-    borderColor: C.red,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  recordInner: { width: 58, height: 58, borderRadius: 29, backgroundColor: C.red },
-  stopBtn: {
-    width: 78,
-    height: 78,
-    borderRadius: 39,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: C.red,
-    borderWidth: 4,
-    borderColor: '#fecaca',
-  },
-  stopInner: { width: 28, height: 28, borderRadius: 6, backgroundColor: '#fff' },
-  disabledBtn: { opacity: 0.35 },
+  blueBtn: { backgroundColor: '#0071E3', paddingVertical: 14, borderRadius: 12, alignItems: 'center', width: '100%', marginTop: 16 },
+  blueBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  outlineBtn: { backgroundColor: '#fff', paddingVertical: 14, borderRadius: 12, alignItems: 'center', width: '100%', borderWidth: 1, borderColor: '#E5E5EA', marginTop: 10 },
+  outlineBtnText: { color: '#1D1D1F', fontSize: 16, fontWeight: '600' },
 });

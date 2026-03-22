@@ -181,9 +181,8 @@ data/sample/
 
 # ── Docs (internal planning, writeups) ────────────────────────────────────
 docs/
-!docs/demo.md
-!docs/ppt.md
 !docs/architecture.md
+!docs/vlm_demo.mp4
 
 # ── Pro-Vigil: database & data ────────────────────────────────────────────
 data/provigil.db
