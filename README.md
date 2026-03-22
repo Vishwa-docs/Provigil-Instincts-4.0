@@ -6,9 +6,7 @@ ProVigil is an end-to-end platform that detects failing smart electricity meters
 
 ### Field Vision — VLM Loose Wire Inspector (Mobile App)
 
-https://github.com/user-attachments/assets/vlm_demo.mp4
-
-<video src="docs/vlm_demo.mp4" width="300" controls autoplay muted></video>
+![docs/vlm_demo.mp4](https://github.com/Vishwa-docs/Provigil-Instincts-4.0/blob/main/docs/vlm_demo.mp4)
 
 ---
 
